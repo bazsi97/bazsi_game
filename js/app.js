@@ -20,7 +20,9 @@ function loadStore() {
   s.level ||= 1;
   s.maxLevel ||= s.level;
   s.progress ||= {};
-  s.settings ||= { autoX: true };
+  s.settings ||= {};
+  s.settings.autoX ??= true;
+  s.settings.highlight ??= true;
   return s;
 }
 function saveStore() {
@@ -29,11 +31,15 @@ function saveStore() {
     if (!S.solved && !document.hidden) S.elapsed += now - S.tick;
     S.tick = now;
     store.progress[P.seed] = {
-      placed: S.placed, marks: [...S.marks], hints: S.hints, elapsed: S.elapsed, solved: S.solved,
+      placed: S.placed, marks: [...S.marks], notes: notesToJson(S.notes), hints: S.hints, elapsed: S.elapsed, solved: S.solved,
     };
   }
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch { /* ignore */ }
 }
+
+// notes: Map<cell, Set<personIndex>>, stored as [[cell, [k, ...]], ...]
+const notesToJson = (notes) => [...notes].filter(([, ks]) => ks.size).map(([i, ks]) => [i, [...ks]]);
+const notesFromJson = (arr) => new Map((arr || []).map(([i, ks]) => [i, new Set(ks)]));
 
 const difficultyFor = (level) => (level % 5 === 0 ? 'hard' : 'medium');
 const STARS = { easy: '★☆☆ Easy', medium: '★★☆ Medium', hard: '★★★ Hard' };
@@ -50,6 +56,8 @@ function openCase(level) {
   S = {
     placed: saved?.placed ?? new Array(P.people.length).fill(null),
     marks: new Set(saved?.marks ?? []),
+    notes: notesFromJson(saved?.notes),
+    notesMode: S?.notesMode ?? false,
     hints: saved?.hints ?? 0,
     elapsed: saved?.elapsed ?? 0,
     solved: saved?.solved ?? false,
@@ -71,6 +79,7 @@ const ICONS = {
   undo: '<svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
   hint: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
   restart: '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+  notes: '<svg viewBox="0 0 24 24"><path d="M4 20l1-5L16 4l4 4L9 19z"/><path d="M13.5 6.5l4 4"/><path d="M4 20h7"/></svg>',
   rules: '<svg viewBox="0 0 24 24"><path d="M4 4h12l4 4v12H4z"/><path d="M8 10h8M8 14h8M8 18h5"/></svg>',
 };
 
@@ -110,6 +119,7 @@ function renderPage() {
       <div class="status" role="status" aria-live="polite"></div>
       <div class="tools">
         <button class="tool" data-act="undo">${ICONS.undo}Undo</button>
+        <button class="tool" data-act="notes" aria-pressed="false">${ICONS.notes}Notes</button>
         <button class="tool" data-act="hint">${ICONS.hint}Hint</button>
         <button class="tool" data-act="restart">${ICONS.restart}Restart</button>
         <button class="tool" data-act="rules">${ICONS.rules}Rules</button>
@@ -203,6 +213,7 @@ function renderDynamic() {
   const conflicts = new Set();
   for (const m of [rows, cols]) for (const ks of m.values()) if (ks.length > 1) ks.forEach((k) => conflicts.add(k));
 
+  if (S.selected != null && store.settings.highlight) out.push(...clueHighlights(S.selected));
   if (S.selected != null) {
     const sel = S.placed[S.selected];
     if (sel != null) out.push(`<rect class="cell-hi" x="${(sel % n) * CELL}" y="${Math.floor(sel / n) * CELL}" width="${CELL}" height="${CELL}"/>`);
@@ -211,6 +222,7 @@ function renderDynamic() {
     if (occupied.has(i) || !isFree(P, i)) continue;
     if (S.marks.has(i)) out.push(cross(i, 'mark'));
     else if (store.settings.autoX && (rows.has(Math.floor(i / n)) || cols.has(i % n))) out.push(cross(i, 'ghost', 14));
+    if (S.notes.get(i)?.size) out.push(notesSvg(i, S.notes.get(i)));
   }
   if (S.solved) {
     const vCell = S.placed[P.victim];
@@ -245,10 +257,50 @@ function renderDynamic() {
   if (undo) undo.disabled = !S.history.length || S.solved;
   const hint = $('[data-act="hint"]');
   if (hint) hint.disabled = S.solved;
+  const notes = $('[data-act="notes"]');
+  if (notes) {
+    notes.classList.toggle('on', S.notesMode);
+    notes.setAttribute('aria-pressed', String(S.notesMode));
+    notes.disabled = S.solved;
+  }
+}
+
+// Outline whatever the selected person's statement talks about: every rug for "on a rug",
+// every shelf for "beside a shelf", the whole room for "in the Library".
+function clueHighlights(k) {
+  const n = P.n, out = [];
+  for (const c of P.people[k].clues) {
+    for (let i = 0; i < n * n; i++) {
+      const x = (i % n) * CELL, y = Math.floor(i / n) * CELL;
+      if ((c.type === 'on' || c.type === 'beside') && P.cells[i].obj === c.obj) {
+        out.push(`<rect class="clue-hi" x="${x + 5}" y="${y + 5}" width="${CELL - 10}" height="${CELL - 10}" rx="12"/>`);
+      } else if (c.type === 'in' && P.cells[i].area === c.area) {
+        out.push(`<rect class="area-hi" x="${x}" y="${y}" width="${CELL}" height="${CELL}"/>`);
+      }
+    }
+  }
+  return out;
+}
+
+// Pencil marks: each person has a fixed slot (3 per row), top and bottom of the cell
+// so the furniture in the middle stays readable.
+function notesSvg(i, ks) {
+  const n = P.n, N = P.people.length;
+  const x0 = (i % n) * CELL, y0 = Math.floor(i / n) * CELL;
+  const rowsN = Math.ceil(N / 3);
+  const ys = rowsN === 1 ? [22] : rowsN === 2 ? [21, 81] : [21, 51, 81];
+  return [...ks].sort((a, b) => a - b).map((k) => {
+    const x = x0 + 22 + (k % 3) * 28, y = y0 + ys[Math.floor(k / 3)];
+    const cls = P.people[k].isVictim ? 'note victim' : 'note';
+    return `<text class="${cls}" x="${x}" y="${y}">${P.people[k].initial}</text>`;
+  }).join('');
 }
 
 function defaultStatus() {
   if (S.solved) return `Case closed. ${P.people[P.murderer].name} did it.`;
+  if (S.selected != null && S.notesMode) {
+    return `Notes: tap squares to jot ${P.people[S.selected].initial} for ${P.people[S.selected].name}.`;
+  }
   if (S.selected != null) {
     const pr = P.people[S.selected];
     return S.placed[S.selected] != null
@@ -256,6 +308,7 @@ function defaultStatus() {
       : `Where was ${pr.name}? Tap a square.`;
   }
   const left = S.placed.filter((x) => x == null).length;
+  if (S.notesMode) return 'Notes mode: pick a statement, then tap squares to jot initials.';
   if (left === P.people.length) return 'Tap a statement, then a square. Tap empty squares to cross them out.';
   return `${left} ${left === 1 ? 'person' : 'people'} left to place.`;
 }
@@ -276,7 +329,7 @@ function toast(text, alert = true) {
 // ---------- interaction ----------
 
 function snapshot() {
-  S.history.push({ placed: S.placed.slice(), marks: [...S.marks] });
+  S.history.push({ placed: S.placed.slice(), marks: [...S.marks], notes: notesToJson(S.notes) });
   if (S.history.length > 300) S.history.shift();
 }
 
@@ -298,7 +351,18 @@ function tapCell(i) {
     if (S.selected != null) toast(`Nobody can stand on the ${OBJECTS[P.cells[i].obj].name}.`);
     return;
   }
-  if (S.selected != null) {
+  if (S.selected != null && S.notesMode) {
+    if (occupant >= 0) {
+      toast(`${P.people[occupant].name} is already standing there.`);
+      return;
+    }
+    snapshot();
+    const ks = S.notes.get(i) || new Set();
+    if (ks.has(S.selected)) ks.delete(S.selected);
+    else ks.add(S.selected);
+    S.notes.set(i, ks);
+    // keep the person selected so several squares can be noted in a row
+  } else if (S.selected != null) {
     snapshot();
     if (occupant === S.selected) {
       S.placed[occupant] = null;
@@ -306,6 +370,7 @@ function tapCell(i) {
       if (occupant >= 0) S.placed[occupant] = null;
       S.placed[S.selected] = i;
       S.marks.delete(i);
+      clearNotesFor(S.selected, i);
       S.fresh = S.selected;
       if (S.hintFocus === S.selected) S.hintFocus = null;
     }
@@ -318,6 +383,19 @@ function tapCell(i) {
     else S.marks.add(i);
   }
   afterChange();
+}
+
+// Once someone is placed, their pencil marks elsewhere (and any notes under them) are done with.
+function clearNotesFor(k, cell) {
+  S.notes.delete(cell);
+  for (const ks of S.notes.values()) ks.delete(k);
+}
+
+function toggleNotes() {
+  if (S.solved) return;
+  S.notesMode = !S.notesMode;
+  renderDynamic();
+  setStatus(defaultStatus());
 }
 
 function tapCard(k) {
@@ -351,6 +429,7 @@ function undo() {
   if (!prev) return;
   S.placed = prev.placed;
   S.marks = new Set(prev.marks);
+  S.notes = notesFromJson(prev.notes);
   S.selected = null;
   S.flagged = null;
   renderDynamic();
@@ -386,6 +465,7 @@ function hint() {
     if (occupant >= 0) S.placed[occupant] = null;
     S.placed[next] = cell;
     S.marks.delete(cell);
+    clearNotesFor(next, cell);
     S.fresh = next;
     S.hintFocus = null;
     toast(`An informant places ${P.people[next].name}.`, false);
@@ -466,11 +546,18 @@ function showRules() {
       <li>Place everyone, and the killer is revealed.</li>
     </ul>
     <p><b>Controls.</b> Tap a statement, then a square to place that person. Tap a placed letter to pick it up; tap it again to remove. With nobody selected, tap an empty square to cross it out.</p>
+    <p><b>Notes.</b> Switch on <i>Notes</i>, pick a statement, then tap squares to pencil in that person's initial, as in Sudoku. The person stays selected so you can jot several squares. Placing someone wipes their notes.</p>
     <div class="mini-legend">${legend}</div>
     <label class="setting"><input type="checkbox" id="opt-autox" ${store.settings.autoX ? 'checked' : ''}> Faintly cross out rows and columns that are taken</label>
+    <label class="setting"><input type="checkbox" id="opt-highlight" ${store.settings.highlight ? 'checked' : ''}> Highlight the objects a selected statement mentions</label>
     <div class="actions"><button class="tool primary" data-act="close">Back to the case</button></div>`);
   $('#opt-autox').addEventListener('change', (ev) => {
     store.settings.autoX = ev.target.checked;
+    saveStore();
+    renderDynamic();
+  });
+  $('#opt-highlight').addEventListener('change', (ev) => {
+    store.settings.highlight = ev.target.checked;
     saveStore();
     renderDynamic();
   });
@@ -482,7 +569,7 @@ document.addEventListener('click', (ev) => {
   const act = ev.target.closest('[data-act]')?.dataset.act;
   if (act) {
     ({
-      undo, hint, restart, rules: showRules, close: closeModal, 'do-restart': doRestart,
+      undo, hint, restart, notes: toggleNotes, rules: showRules, close: closeModal, 'do-restart': doRestart,
       next: () => { closeModal(); openCase(P.seed + 1); },
       prev: () => { closeModal(); openCase(P.seed - 1); },
     })[act]?.();

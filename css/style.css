@@ -124,6 +124,13 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .board .token.fresh { animation: stamp 0.28s cubic-bezier(.3,1.6,.5,1) both; transform-box: fill-box; transform-origin: center; }
 .board .token.killer circle.ring { fill: var(--ink); }
 .board .token.killer text { fill: var(--paper); }
+.board .clue-hi { fill: var(--red); fill-opacity: 0.1; stroke: var(--red); stroke-width: 4; stroke-dasharray: 10 6; }
+.board .area-hi { fill: var(--red); opacity: 0.09; }
+.board .note {
+  font-family: var(--display); font-weight: 900; font-size: 23px; fill: var(--ink); text-anchor: middle; dominant-baseline: central;
+  stroke: var(--paper); stroke-width: 5px; paint-order: stroke; stroke-linejoin: round;
+}
+.board .note.victim { fill: var(--red); }
 .board .cell-hi { fill: var(--ink); opacity: 0.07; }
 .board .scene-ring { fill: none; stroke: var(--red); stroke-width: 6; stroke-dasharray: 14 8; }
 @keyframes stamp { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -183,13 +190,13 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .toolbar .status.alert { color: var(--red); }
-.toolbar .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-width: 620px; margin: 0 auto; }
+.toolbar .tools { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 620px; margin: 0 auto; }
 .tool {
   background: var(--paper); border: 2px solid var(--ink); padding: 7px 4px; cursor: pointer;
   font-family: var(--display); font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em;
   display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;
 }
-.tool:active { background: var(--ink); color: var(--paper); }
+.tool:active, .tool.on { background: var(--ink); color: var(--paper); }
 .tool:disabled { opacity: 0.35; }
 .tool svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -236,8 +243,9 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   .card .clue { font-size: 0.72rem; }
   .card .role { font-size: 0.68rem; }
   .story .lede { font-size: 0.9rem; }
-  .tool { font-size: 0.72rem; gap: 4px; }
-  .tool svg { width: 16px; height: 16px; }
+  .toolbar .tools { gap: 5px; }
+  .tool { font-size: 0.62rem; gap: 2px; flex-direction: column; padding: 4px 2px; letter-spacing: 0.04em; }
+  .tool svg { width: 17px; height: 17px; }
 }
 @media (min-width: 640px) {
   .story .lede { column-count: 2; column-gap: 22px; column-rule: 1px solid var(--ink-3); }
