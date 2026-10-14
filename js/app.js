@@ -68,7 +68,9 @@ function openCase(level) {
     flagged: null,
     hintFocus: null,
   };
-  if (location.hash !== `#${level}`) history.replaceState(null, '', `#${level}`);
+  try {
+    if (location.hash !== `#${level}`) history.replaceState(null, '', `#${level}`);
+  } catch { /* sandboxed frames may refuse URL changes */ }
   renderPage();
   saveStore();
 }
