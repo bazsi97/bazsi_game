@@ -1,0 +1,190 @@
+// Two solvers:
+//  - countSolutions: brute force, used to PROVE a puzzle has exactly one answer.
+//  - logicalSolve: solves like a human would, technique by technique, used to RATE difficulty
+//    and to give hints in a sensible order.
+
+import { domainFor } from './clues.js';
+
+export function victimIndex(p) {
+  return p.people.findIndex((x) => x.isVictim);
+}
+
+// Victim rule: the victim's area holds exactly one other person (the murderer).
+export function aloneOk(p, pos) {
+  const v = victimIndex(p);
+  const a = p.cells[pos[v]].area;
+  let others = 0;
+  pos.forEach((i, k) => { if (k !== v && p.cells[i].area === a) others++; });
+  return others === 1;
+}
+
+export function countSolutions(p, limit = 2) {
+  const n = p.n;
+  const doms = p.people.map((pr) => domainFor(p, pr));
+  const order = p.people.map((_, k) => k)
+    .sort((a, b) => (p.people[a].isVictim - p.people[b].isVictim) || doms[a].length - doms[b].length);
+  const rowUsed = new Array(n).fill(false);
+  const colUsed = new Array(n).fill(false);
+  const pos = new Array(p.people.length);
+  let count = 0;
+  let first = null;
+
+  (function rec(d) {
+    if (count >= limit) return;
+    if (d === order.length) {
+      if (aloneOk(p, pos)) {
+        count++;
+        if (!first) first = pos.slice();
+      }
+      return;
+    }
+    const k = order[d];
+    for (const i of doms[k]) {
+      const r = Math.floor(i / n), c = i % n;
+      if (rowUsed[r] || colUsed[c]) continue;
+      rowUsed[r] = colUsed[c] = true;
+      pos[k] = i;
+      rec(d + 1);
+      rowUsed[r] = colUsed[c] = false;
+    }
+  })(0);
+
+  return { count, first };
+}
+
+// Technique levels: 1 = easy, 2 = medium, 3 = needs trial and error.
+export function logicalSolve(p) {
+  const n = p.n;
+  const P = p.people.length;
+  const vi = victimIndex(p);
+  const cand = p.people.map((pr) => new Set(domainFor(p, pr)));
+  const placed = new Array(P).fill(false);
+  const order = [];
+  const used = {};
+  let maxLevel = 0;
+  const lines = [(i) => Math.floor(i / n), (i) => i % n];
+  const A = (i) => p.cells[i].area;
+
+  const bump = (level, name) => {
+    maxLevel = Math.max(maxLevel, level);
+    used[name] = (used[name] || 0) + 1;
+  };
+  const removeWhere = (k, pred) => {
+    let ch = false;
+    for (const i of [...cand[k]]) if (pred(i)) { cand[k].delete(i); ch = true; }
+    return ch;
+  };
+
+  const initialSingles = p.people.filter((pr, k) => !pr.isVictim && cand[k].size === 1).length;
+
+  function singles() {
+    let ch = false;
+    for (let k = 0; k < P; k++) {
+      if (placed[k] || cand[k].size !== 1) continue;
+      const i = [...cand[k]][0];
+      placed[k] = true;
+      order.push({ person: k, cell: i });
+      for (let j = 0; j < P; j++) {
+        if (j !== k) removeWhere(j, (x) => lines.some((L) => L(x) === L(i)));
+      }
+      bump(1, 'single');
+      ch = true;
+    }
+    return ch;
+  }
+
+  // Each row/column holds exactly one person: if only one person can reach a line, they're in it.
+  function hiddenLine() {
+    for (const L of lines) {
+      for (let v = 0; v < n; v++) {
+        const holders = [];
+        for (let k = 0; k < P; k++) if ([...cand[k]].some((x) => L(x) === v)) holders.push(k);
+        if (holders.length === 1 && removeWhere(holders[0], (x) => L(x) !== v)) {
+          bump(1, 'line');
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // Person confined to one row/column blocks it for everyone else.
+  function pointing() {
+    for (const L of lines) {
+      for (let k = 0; k < P; k++) {
+        if (placed[k]) continue;
+        const ls = new Set([...cand[k]].map(L));
+        if (ls.size !== 1) continue;
+        const v = [...ls][0];
+        let ch = false;
+        for (let j = 0; j < P; j++) if (j !== k) ch = removeWhere(j, (x) => L(x) === v) || ch;
+        if (ch) { bump(1, 'pointing'); return true; }
+      }
+    }
+    return false;
+  }
+
+  function alone() {
+    if (vi < 0) return false;
+    const suspects = [...Array(P).keys()].filter((k) => k !== vi);
+    const canBeIn = (k, a) => [...cand[k]].some((x) => A(x) === a);
+    const mustBeIn = (k, a) => [...cand[k]].every((x) => A(x) === a);
+    let ch = false;
+    for (let a = 0; a < p.areas.length; a++) {
+      const definite = suspects.filter((k) => mustBeIn(k, a)).length;
+      const possible = suspects.filter((k) => canBeIn(k, a)).length;
+      if (definite >= 2 || possible === 0) ch = removeWhere(vi, (x) => A(x) === a) || ch;
+    }
+    const vAreas = new Set([...cand[vi]].map(A));
+    if (vAreas.size === 1) {
+      const a = [...vAreas][0];
+      const possibles = suspects.filter((k) => canBeIn(k, a));
+      if (possibles.length === 1) ch = removeWhere(possibles[0], (x) => A(x) !== a) || ch;
+      const defs = suspects.filter((k) => mustBeIn(k, a));
+      if (defs.length === 1) {
+        for (const k of suspects) if (k !== defs[0]) ch = removeWhere(k, (x) => A(x) === a) || ch;
+      }
+    }
+    if (ch) bump(2, 'alone');
+    return ch;
+  }
+
+  // k people who between them can only reach k rows own those rows.
+  function subsets() {
+    const open = [...Array(P).keys()].filter((k) => !placed[k]);
+    for (const size of [2, 3]) {
+      for (const combo of combos(open, size)) {
+        for (const L of lines) {
+          const ls = new Set();
+          for (const k of combo) for (const x of cand[k]) ls.add(L(x));
+          if (ls.size !== size) continue;
+          let ch = false;
+          for (let j = 0; j < P; j++) {
+            if (!combo.includes(j)) ch = removeWhere(j, (x) => ls.has(L(x))) || ch;
+          }
+          if (ch) { bump(2, 'subset'); return true; }
+        }
+      }
+    }
+    return false;
+  }
+
+  const techniques = [singles, hiddenLine, pointing, alone, subsets];
+  while (!placed.every(Boolean)) {
+    if (cand.some((s) => s.size === 0)) break;
+    if (!techniques.some((t) => t())) break;
+  }
+
+  const solved = placed.every(Boolean) && cand.every((s) => s.size === 1);
+  return { solved, level: solved ? maxLevel : 3, used, order, initialSingles };
+}
+
+function combos(arr, k, start = 0, acc = [], out = []) {
+  if (acc.length === k) { out.push(acc.slice()); return out; }
+  for (let i = start; i < arr.length; i++) {
+    acc.push(arr[i]);
+    combos(arr, k, i + 1, acc, out);
+    acc.pop();
+  }
+  return out;
+}
