@@ -57,7 +57,7 @@ function openCase(level) {
     placed: saved?.placed ?? new Array(P.people.length).fill(null),
     marks: new Set(saved?.marks ?? []),
     notes: notesFromJson(saved?.notes),
-    notesMode: S?.notesMode ?? false,
+    crossMode: false,
     hints: saved?.hints ?? 0,
     elapsed: saved?.elapsed ?? 0,
     solved: saved?.solved ?? false,
@@ -79,7 +79,7 @@ const ICONS = {
   undo: '<svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>',
   hint: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
   restart: '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
-  notes: '<svg viewBox="0 0 24 24"><path d="M4 20l1-5L16 4l4 4L9 19z"/><path d="M13.5 6.5l4 4"/><path d="M4 20h7"/></svg>',
+  cross: '<svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>',
   rules: '<svg viewBox="0 0 24 24"><path d="M4 4h12l4 4v12H4z"/><path d="M8 10h8M8 14h8M8 18h5"/></svg>',
 };
 
@@ -119,7 +119,7 @@ function renderPage() {
       <div class="status" role="status" aria-live="polite"></div>
       <div class="tools">
         <button class="tool" data-act="undo">${ICONS.undo}Undo</button>
-        <button class="tool" data-act="notes" aria-pressed="false">${ICONS.notes}Notes</button>
+        <button class="tool" data-act="cross" aria-pressed="false">${ICONS.cross}Cross</button>
         <button class="tool" data-act="hint">${ICONS.hint}Hint</button>
         <button class="tool" data-act="restart">${ICONS.restart}Restart</button>
         <button class="tool" data-act="rules">${ICONS.rules}Rules</button>
@@ -174,7 +174,7 @@ function boardSvg() {
     if (r < n - 1 && P.cells[i].area !== P.cells[i + n].area) out.push(`<line class="wall" x1="${x}" y1="${y + CELL}" x2="${x + CELL}" y2="${y + CELL}"/>`);
   }
   out.push(`<rect class="outer" x="0" y="0" width="${W}" height="${W}"/>`);
-  out.push('<g id="dyn"></g>');
+  out.push('<g id="dyn"></g><g id="press"></g>');
   // room name tags, bottom-right cell of each room
   P.areas.forEach((a, id) => {
     let best = -1;
@@ -220,9 +220,12 @@ function renderDynamic() {
   }
   for (let i = 0; i < n * n; i++) {
     if (occupied.has(i) || !isFree(P, i)) continue;
+    const auto = store.settings.autoX && (rows.has(Math.floor(i / n)) || cols.has(i % n));
     if (S.marks.has(i)) out.push(cross(i, 'mark'));
-    else if (store.settings.autoX && (rows.has(Math.floor(i / n)) || cols.has(i % n))) out.push(cross(i, 'ghost', 14));
-    if (S.notes.get(i)?.size) out.push(notesSvg(i, S.notes.get(i)));
+    else if (auto) out.push(cross(i, 'ghost', 20));
+    // notes are kept but hidden while crossed out or once that person is placed
+    const ks = [...(S.notes.get(i) || [])].filter((k) => S.placed[k] == null);
+    if (ks.length && !auto && !S.marks.has(i)) out.push(notesSvg(i, ks));
   }
   if (S.solved) {
     const vCell = S.placed[P.victim];
@@ -257,12 +260,14 @@ function renderDynamic() {
   if (undo) undo.disabled = !S.history.length || S.solved;
   const hint = $('[data-act="hint"]');
   if (hint) hint.disabled = S.solved;
-  const notes = $('[data-act="notes"]');
-  if (notes) {
-    notes.classList.toggle('on', S.notesMode);
-    notes.setAttribute('aria-pressed', String(S.notesMode));
-    notes.disabled = S.solved;
+  const crossBtn = $('[data-act="cross"]');
+  if (crossBtn) {
+    crossBtn.classList.toggle('on', S.crossMode);
+    crossBtn.setAttribute('aria-pressed', String(S.crossMode));
+    crossBtn.disabled = S.solved;
   }
+  // while painting notes/crosses, a finger drag on the board must not scroll the page
+  $('#board')?.classList.toggle('painting', !S.solved && (S.crossMode || S.selected != null));
 }
 
 // Outline whatever the selected person's statement talks about: every rug for "on a rug",
@@ -289,7 +294,7 @@ function notesSvg(i, ks) {
   const x0 = (i % n) * CELL, y0 = Math.floor(i / n) * CELL;
   const rowsN = Math.ceil(N / 3);
   const ys = rowsN === 1 ? [22] : rowsN === 2 ? [21, 81] : [21, 51, 81];
-  return [...ks].sort((a, b) => a - b).map((k) => {
+  return ks.sort((a, b) => a - b).map((k) => {
     const x = x0 + 22 + (k % 3) * 28, y = y0 + ys[Math.floor(k / 3)];
     const cls = P.people[k].isVictim ? 'note victim' : 'note';
     return `<text class="${cls}" x="${x}" y="${y}">${P.people[k].initial}</text>`;
@@ -298,18 +303,15 @@ function notesSvg(i, ks) {
 
 function defaultStatus() {
   if (S.solved) return `Case closed. ${P.people[P.murderer].name} did it.`;
-  if (S.selected != null && S.notesMode) {
-    return `Notes: tap squares to jot ${P.people[S.selected].initial} for ${P.people[S.selected].name}.`;
-  }
+  if (S.crossMode) return 'Cross-out mode: tap or swipe squares.';
   if (S.selected != null) {
     const pr = P.people[S.selected];
     return S.placed[S.selected] != null
-      ? `${pr.name}: tap a square to move, or tap ${pr.initial} again to remove.`
-      : `Where was ${pr.name}? Tap a square.`;
+      ? `${pr.name}: hold a square to move · hold ${pr.initial} to remove`
+      : `${pr.name}: tap or swipe to note · hold to place`;
   }
   const left = S.placed.filter((x) => x == null).length;
-  if (S.notesMode) return 'Notes mode: pick a statement, then tap squares to jot initials.';
-  if (left === P.people.length) return 'Tap a statement, then a square. Tap empty squares to cross them out.';
+  if (left === P.people.length) return 'Pick a statement. Tap a square to note, hold to place.';
   return `${left} ${left === 1 ? 'person' : 'people'} left to place.`;
 }
 
@@ -343,57 +345,136 @@ function cellFromEvent(ev) {
   return r * P.n + c;
 }
 
+// Board gestures (person selected):  tap = toggle note · swipe = paint notes · hold = place.
+// Cross mode:                          tap = toggle ✕   · swipe = paint ✕.
+// No selection:                        tap a placed letter to select that person.
+const HOLD_MS = 450;
+let gesture = null;
+
+function onPointerDown(ev, board) {
+  if (!P || S.solved || ev.button > 0) return;
+  const i = cellFromEvent(ev);
+  if (i < 0) return;
+  ev.preventDefault();
+  try { board.setPointerCapture(ev.pointerId); } catch { /* ignore */ }
+  gesture = { id: ev.pointerId, start: i, last: i, swiped: false, held: false, timer: null };
+  if (S.selected != null && !S.crossMode && isFree(P, i)) {
+    showPress(i);
+    gesture.timer = setTimeout(() => {
+      gesture.held = true;
+      hidePress();
+      navigator.vibrate?.(15);
+      holdCell(i);
+    }, HOLD_MS);
+  }
+}
+
+function onPointerMove(ev) {
+  const g = gesture;
+  if (!g || g.held || ev.pointerId !== g.id) return;
+  const i = cellFromEvent(ev);
+  if (i < 0 || i === g.last) return;
+  if (!S.crossMode && S.selected == null) return;
+  if (!g.swiped) {
+    g.swiped = true;
+    clearTimeout(g.timer);
+    hidePress();
+    snapshot();
+    g.mode = paintModeFor(g.start);
+    paint(g.start, g.mode);
+  }
+  g.last = i;
+  paint(i, g.mode);
+  renderDynamic();
+}
+
+function onPointerUp(ev) {
+  const g = gesture;
+  if (!g || ev.pointerId !== g.id) return;
+  clearTimeout(g.timer);
+  hidePress();
+  gesture = null;
+  if (ev.type === 'pointercancel' || g.held) return;
+  if (g.swiped) afterChange();
+  else tapCell(g.start);
+}
+
+// The first square of a swipe decides whether the swipe adds or removes.
+function paintModeFor(i) {
+  if (S.crossMode) return S.marks.has(i) ? 'unx' : 'x';
+  return S.notes.get(i)?.has(S.selected) ? 'unnote' : 'note';
+}
+
+function paint(i, mode) {
+  if (!isFree(P, i) || S.placed.includes(i)) return;
+  if (mode === 'x') S.marks.add(i);
+  else if (mode === 'unx') S.marks.delete(i);
+  else {
+    const ks = S.notes.get(i) || new Set();
+    if (mode === 'note') ks.add(S.selected);
+    else ks.delete(S.selected);
+    S.notes.set(i, ks);
+  }
+}
+
+function showPress(i) {
+  const n = P.n;
+  $('#press').innerHTML = `<circle class="press" cx="${(i % n) * CELL + CELL / 2}" cy="${Math.floor(i / n) * CELL + CELL / 2}" r="40" pathLength="100" style="animation-duration:${HOLD_MS}ms"/>`;
+}
+function hidePress() {
+  const el = $('#press');
+  if (el) el.innerHTML = '';
+}
+
 function tapCell(i) {
   if (S.solved) return;
   S.flagged = null;
   const occupant = S.placed.indexOf(i);
+  if (occupant >= 0) {
+    // tapping a placed letter selects that person (tap again to let go)
+    S.crossMode = false;
+    S.selected = S.selected === occupant ? null : occupant;
+    renderDynamic();
+    setStatus(defaultStatus());
+    return;
+  }
   if (!isFree(P, i)) {
     if (S.selected != null) toast(`Nobody can stand on the ${OBJECTS[P.cells[i].obj].name}.`);
     return;
   }
-  if (S.selected != null && S.notesMode) {
-    if (occupant >= 0) {
-      toast(`${P.people[occupant].name} is already standing there.`);
-      return;
-    }
-    snapshot();
-    const ks = S.notes.get(i) || new Set();
-    if (ks.has(S.selected)) ks.delete(S.selected);
-    else ks.add(S.selected);
-    S.notes.set(i, ks);
-    // keep the person selected so several squares can be noted in a row
-  } else if (S.selected != null) {
-    snapshot();
-    if (occupant === S.selected) {
-      S.placed[occupant] = null;
-    } else {
-      if (occupant >= 0) S.placed[occupant] = null;
-      S.placed[S.selected] = i;
-      S.marks.delete(i);
-      clearNotesFor(S.selected, i);
-      S.fresh = S.selected;
-      if (S.hintFocus === S.selected) S.hintFocus = null;
-    }
-    S.selected = null;
-  } else if (occupant >= 0) {
-    S.selected = occupant;
+  if (!S.crossMode && S.selected == null) {
+    toast('Pick a statement first, or switch on Cross.', false);
+    return;
+  }
+  snapshot();
+  paint(i, paintModeFor(i));
+  afterChange();
+}
+
+// Long press: commit the selected person to this square (or take them back off it).
+function holdCell(i) {
+  if (S.solved || S.selected == null) return;
+  const k = S.selected;
+  const occupant = S.placed.indexOf(i);
+  snapshot();
+  if (occupant === k) {
+    S.placed[k] = null;
+    toast(`${P.people[k].name} taken off the board.`, false);
   } else {
-    snapshot();
-    if (S.marks.has(i)) S.marks.delete(i);
-    else S.marks.add(i);
+    if (occupant >= 0) S.placed[occupant] = null;
+    S.placed[k] = i;
+    S.marks.delete(i);
+    S.fresh = k;
+    if (S.hintFocus === k) S.hintFocus = null;
+    S.selected = null;
   }
   afterChange();
 }
 
-// Once someone is placed, their pencil marks elsewhere (and any notes under them) are done with.
-function clearNotesFor(k, cell) {
-  S.notes.delete(cell);
-  for (const ks of S.notes.values()) ks.delete(k);
-}
-
-function toggleNotes() {
+function toggleCross() {
   if (S.solved) return;
-  S.notesMode = !S.notesMode;
+  S.crossMode = !S.crossMode;
+  if (S.crossMode) S.selected = null;
   renderDynamic();
   setStatus(defaultStatus());
 }
@@ -401,6 +482,7 @@ function toggleNotes() {
 function tapCard(k) {
   if (S.solved) return;
   S.selected = S.selected === k ? null : k;
+  S.crossMode = false;
   S.flagged = null;
   renderDynamic();
   setStatus(defaultStatus());
@@ -465,7 +547,6 @@ function hint() {
     if (occupant >= 0) S.placed[occupant] = null;
     S.placed[next] = cell;
     S.marks.delete(cell);
-    clearNotesFor(next, cell);
     S.fresh = next;
     S.hintFocus = null;
     toast(`An informant places ${P.people[next].name}.`, false);
@@ -545,10 +626,9 @@ function showRules() {
       <li>The victim was <b>alone with the murderer</b>: exactly one suspect shares the victim's room.</li>
       <li>Place everyone, and the killer is revealed.</li>
     </ul>
-    <p><b>Controls.</b> Tap a statement, then a square to place that person. Tap a placed letter to pick it up; tap it again to remove. With nobody selected, tap an empty square to cross it out.</p>
-    <p><b>Notes.</b> Switch on <i>Notes</i>, pick a statement, then tap squares to pencil in that person's initial, as in Sudoku. The person stays selected so you can jot several squares. Placing someone wipes their notes.</p>
+    <p><b>Controls.</b> Tap a statement to pick that person. Then <b>tap</b> a square to pencil in their initial, or <b>swipe</b> across squares to note several at once. <b>Hold</b> a square to place them for good: their row and column get crossed out. Hold their letter to take them back off. Use <b>Cross</b> to tap or swipe ✕ onto squares yourself.</p>
     <div class="mini-legend">${legend}</div>
-    <label class="setting"><input type="checkbox" id="opt-autox" ${store.settings.autoX ? 'checked' : ''}> Faintly cross out rows and columns that are taken</label>
+    <label class="setting"><input type="checkbox" id="opt-autox" ${store.settings.autoX ? 'checked' : ''}> Cross out the row and column of everyone placed</label>
     <label class="setting"><input type="checkbox" id="opt-highlight" ${store.settings.highlight ? 'checked' : ''}> Highlight the objects a selected statement mentions</label>
     <div class="actions"><button class="tool primary" data-act="close">Back to the case</button></div>`);
   $('#opt-autox').addEventListener('change', (ev) => {
@@ -569,19 +649,25 @@ document.addEventListener('click', (ev) => {
   const act = ev.target.closest('[data-act]')?.dataset.act;
   if (act) {
     ({
-      undo, hint, restart, notes: toggleNotes, rules: showRules, close: closeModal, 'do-restart': doRestart,
+      undo, hint, restart, cross: toggleCross, rules: showRules, close: closeModal, 'do-restart': doRestart,
       next: () => { closeModal(); openCase(P.seed + 1); },
       prev: () => { closeModal(); openCase(P.seed - 1); },
     })[act]?.();
     return;
   }
   const card = ev.target.closest('.card');
-  if (card) return tapCard(Number(card.dataset.person));
-  if (ev.target.closest('#board')) {
-    const i = cellFromEvent(ev);
-    if (i >= 0) tapCell(i);
-  }
+  if (card) tapCard(Number(card.dataset.person));
 });
+
+// board gestures (delegated: the board element is re-rendered per case)
+document.addEventListener('pointerdown', (ev) => {
+  const board = ev.target.closest?.('#board');
+  if (board) onPointerDown(ev, board);
+});
+document.addEventListener('pointermove', onPointerMove);
+document.addEventListener('pointerup', onPointerUp);
+document.addEventListener('pointercancel', onPointerUp);
+document.addEventListener('contextmenu', (ev) => { if (ev.target.closest?.('#board')) ev.preventDefault(); });
 
 document.addEventListener('keydown', (ev) => {
   if ((ev.ctrlKey || ev.metaKey) && ev.key === 'z') { ev.preventDefault(); undo(); }

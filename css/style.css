@@ -86,7 +86,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .board-wrap { position: relative; }
 .board {
   display: block; width: min(100%, calc(100dvh - 160px)); min-width: min(100%, 300px); height: auto; max-width: 620px; margin: 0 auto;
-  user-select: none; -webkit-user-select: none; cursor: pointer;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer;
   filter: drop-shadow(0 1px 0 rgba(0,0,0,.05));
 }
 
@@ -104,6 +104,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .ptd { fill: var(--ink); opacity: 0.28; }
 .pts { fill: none; stroke: var(--ink); stroke-width: 1.4; }
 
+.board.painting { touch-action: none; }
 .board .floor { stroke: none; }
 .board .gridline { stroke: var(--ink); stroke-width: 1.4; opacity: 0.35; stroke-dasharray: 3 6; }
 .board .wall { stroke: var(--ink); stroke-width: 7; stroke-linecap: square; }
@@ -111,7 +112,10 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .board .tag rect { fill: var(--paper); stroke: var(--ink); stroke-width: 2.4; }
 .board .tag text { font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: 0.06em; fill: var(--ink); text-transform: uppercase; }
 .board .obj { opacity: 1; transition: opacity 0.2s; }
-.board .ghost { stroke: var(--ink); stroke-width: 3; opacity: 0.22; stroke-linecap: round; }
+.board .ghost { stroke: var(--ink); stroke-width: 4.5; opacity: 0.5; stroke-linecap: round; }
+.board .press { fill: none; stroke: var(--red); stroke-width: 7; stroke-dasharray: 100; stroke-dashoffset: 100; stroke-linecap: round;
+  transform-box: fill-box; transform-origin: center; transform: rotate(-90deg); animation: press linear forwards; }
+@keyframes press { to { stroke-dashoffset: 0; } }
 .board .mark { stroke: var(--ink); stroke-width: 6.5; stroke-linecap: round; fill: none; }
 .board .token circle.ring { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
 .board .token circle.inner { fill: none; stroke: var(--ink); stroke-width: 1.5; }
