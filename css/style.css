@@ -17,6 +17,13 @@
   --ink-2: #4a443a;
   --ink-3: rgba(28, 25, 21, 0.38);
   --red: #a3241b;
+  /* room floor tones, alternating light/dark so neighbouring rooms separate */
+  --room-0: #f5eedd;
+  --room-1: #d9c9a4;
+  --room-2: #ece1c6;
+  --room-3: #cdbb94;
+  --room-4: #e4d6b6;
+  --room-5: #c4b089;
   --display: 'Playfair', 'Didot', 'Bodoni 72', Georgia, serif;
   --body: 'Old Standard', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
   --type: 'Special Elite', 'Courier New', monospace;
@@ -84,6 +91,8 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .difficulty { font-family: var(--type); font-size: 0.8rem; letter-spacing: 0.04em; }
 
 .board-wrap { position: relative; }
+.board .caption { font-family: var(--type); font-size: 19px; letter-spacing: 0.06em; fill: var(--ink); text-transform: uppercase; }
+.board .caption.compass { font-family: var(--display); font-weight: 900; font-size: 21px; }
 .board {
   display: block; width: min(100%, calc(100dvh - 160px)); min-width: min(100%, 300px); height: auto; max-width: 620px; margin: 0 auto;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer;
@@ -106,17 +115,19 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 
 .board.painting { touch-action: none; }
 .board .floor { stroke: none; }
-.board .gridline { stroke: var(--ink); stroke-width: 1.4; opacity: 0.35; stroke-dasharray: 3 6; }
-.board .wall { stroke: var(--ink); stroke-width: 7; stroke-linecap: square; }
-.board .outer { fill: none; stroke: var(--ink); stroke-width: 9; }
+.board .gridline { stroke: var(--ink); stroke-width: 2; opacity: 0.55; }
+.board .wall { stroke: var(--ink); stroke-width: 10; stroke-linecap: square; }
+.board .outer { fill: none; stroke: var(--ink); stroke-width: 11; }
 .board .tag rect { fill: var(--paper); stroke: var(--ink); stroke-width: 2.4; }
 .board .tag text { font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: 0.06em; fill: var(--ink); text-transform: uppercase; }
 .board .obj { opacity: 1; transition: opacity 0.2s; }
-.board .ghost { stroke: var(--ink); stroke-width: 4.5; opacity: 0.5; stroke-linecap: round; }
+.board .ghost { stroke: var(--ink); stroke-width: 5; opacity: 0.75; stroke-linecap: round; }
+.board .ghost-shade { fill: var(--ink); opacity: 0.3; }
+.board .mark-shade { fill: var(--ink); opacity: 0.42; }
 .board .press { fill: none; stroke: var(--red); stroke-width: 7; stroke-dasharray: 100; stroke-dashoffset: 100; stroke-linecap: round;
   transform-box: fill-box; transform-origin: center; transform: rotate(-90deg); animation: press linear forwards; }
 @keyframes press { to { stroke-dashoffset: 0; } }
-.board .mark { stroke: var(--ink); stroke-width: 6.5; stroke-linecap: round; fill: none; }
+.board .mark { stroke: var(--ink); stroke-width: 8; stroke-linecap: round; fill: none; }
 .board .token circle.ring { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
 .board .token circle.inner { fill: none; stroke: var(--ink); stroke-width: 1.5; }
 .board .token text { font-family: var(--display); font-weight: 900; font-size: 44px; fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
@@ -172,6 +183,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 }
 .card.placed .frame { opacity: 0.7; }
 .card.flagged { animation: shake 0.4s; border-color: var(--red); }
+.card.ref { outline: 3px dashed var(--red); outline-offset: 3px; }
 .card.hinted { border-color: var(--red); box-shadow: 3px 3px 0 var(--red); }
 .card.victim .frame::before {
   content: ''; position: absolute; inset: 0; z-index: 1;

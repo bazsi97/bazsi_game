@@ -3,7 +3,7 @@
 
 import { generatePuzzle } from '../js/generator.js';
 import { countSolutions, logicalSolve, aloneOk } from '../js/solver.js';
-import { clueTest, clueText, isFree } from '../js/clues.js';
+import { clueHolds, clueText, isFree } from '../js/clues.js';
 
 let failures = 0;
 const fail = (msg) => { failures++; console.error('FAIL', msg); };
@@ -26,6 +26,7 @@ export function ascii(p) {
 const N = Number(process.argv[2] || 60);
 const t0 = Date.now();
 const stats = { easy: [], medium: [], hard: [] };
+const typeCount = {};
 for (const difficulty of ['easy', 'medium', 'hard']) {
   for (let seed = 1; seed <= N; seed++) {
     const s = Date.now();
@@ -44,7 +45,8 @@ for (const difficulty of ['easy', 'medium', 'hard']) {
     if (new Set(sol.map((i) => i % p.n)).size !== p.n) fail(`${tag} cols`);
     if (!sol.every((i) => isFree(p, i))) fail(`${tag} blocked cell`);
     if (!aloneOk(p, sol)) fail(`${tag} alone rule`);
-    p.people.forEach((pr, k) => pr.clues.forEach((c) => { if (!clueTest(p, c, sol[k])) fail(`${tag} false clue`); }));
+    p.people.forEach((pr, k) => pr.clues.forEach((c) => { if (!clueHolds(p, k, c, sol)) fail(`${tag} false clue ${JSON.stringify(c)}`); }));
+    for (const pr of p.people) for (const c of pr.clues) typeCount[c.type] = (typeCount[c.type] || 0) + 1;
     const vArea = p.cells[sol[p.victim]].area;
     if (p.cells[sol[p.murderer]].area !== vArea) fail(`${tag} murderer`);
     const r = logicalSolve(p);
@@ -55,6 +57,7 @@ const avg = (a) => (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1);
 const max = (a) => Math.max(...a);
 for (const d of Object.keys(stats)) console.log(`${d}: avg ${avg(stats[d])}ms, max ${max(stats[d])}ms`);
 
+console.log('clue types used:', JSON.stringify(typeCount));
 const p = generatePuzzle({ seed: 1, n: 6, difficulty: 'medium' });
 console.log(`\nCase 1 (${p.attempts} layouts): ${p.headline}\n${ascii(p)}`);
 p.people.forEach((pr) => console.log(`  ${pr.name} ${pr.title}${pr.isVictim ? ' (VICTIM)' : ''}: ${pr.clues.map((c) => clueText(p, pr, c)).join(' ')}`));

@@ -85,6 +85,6 @@ variants slot in as **new constraints and new clue types**:
 - **Nobles vs peasants / pirates / crews:** the same mechanism with different labels and flavour clues.
 - **Tasks (Stone Age):** coloured task squares only people with that task can stand on, plus counts
   ("Two people are Hunters"). This is a per-cell `task` field plus a hidden per-person role.
-- **Relational clues** (no new rules needed): "Ada was in the same row as a bookshelf", "Hugo was two
+- ~~Relational clues~~ **done:** one row north/south, one column east/west, somewhere north/south/east/west, diagonally next to, the only one in a room or on a kind of seat, same row/column as an object, edge rows/columns.
   squares north of Mabel", "Nobody else was in the Kitchen", "She was not in the Garden".
 - **Multi-cell furniture** (2-cell beds, long tables) for more book-like rooms.

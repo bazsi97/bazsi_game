@@ -146,14 +146,37 @@ function cardHtml(person, k) {
     </button>`;
 }
 
+// Give neighbouring rooms different paper tones (greedy colouring, spreading tones evenly).
+const TONES = 6;
+function roomTones() {
+  const n = P.n, adj = P.areas.map(() => new Set());
+  for (let i = 0; i < n * n; i++) {
+    const a = P.cells[i].area;
+    if (i % n < n - 1 && P.cells[i + 1].area !== a) { adj[a].add(P.cells[i + 1].area); adj[P.cells[i + 1].area].add(a); }
+    if (i + n < n * n && P.cells[i + n].area !== a) { adj[a].add(P.cells[i + n].area); adj[P.cells[i + n].area].add(a); }
+  }
+  const tones = [];
+  P.areas.forEach((_, a) => {
+    const taken = new Set([...adj[a]].map((b) => tones[b]));
+    let t = (a * 2) % TONES; // alternate light/dark tones
+    while (taken.has(t)) t = (t + 1) % TONES;
+    tones[a] = t;
+  });
+  return tones;
+}
+
 function boardSvg() {
   const n = P.n, W = n * CELL;
+  const tones = roomTones();
   const out = [];
-  out.push(`<svg class="board" id="board" viewBox="-8 -8 ${W + 16} ${W + 16}" role="grid" aria-label="Crime scene">`);
+  out.push(`<svg class="board" id="board" viewBox="-8 -40 ${W + 16} ${W + 48}" role="grid" aria-label="Crime scene, north is up">`);
+  out.push(`<text class="caption" x="0" y="-16">The scene of the crime</text>`);
+  out.push(`<text class="caption compass" x="${W}" y="-16" text-anchor="end">▲ NORTH</text>`);
   out.push(`<rect x="0" y="0" width="${W}" height="${W}" fill="var(--paper)"/>`);
   for (let i = 0; i < n * n; i++) {
     const x = (i % n) * CELL, y = Math.floor(i / n) * CELL;
     const area = P.areas[P.cells[i].area];
+    out.push(`<rect x="${x}" y="${y}" width="${CELL}" height="${CELL}" fill="var(--room-${tones[P.cells[i].area]})"/>`);
     out.push(`<rect class="floor" x="${x}" y="${y}" width="${CELL}" height="${CELL}" fill="url(#pt-${area.pattern})"/>`);
   }
   // dotted grid inside rooms
@@ -194,9 +217,10 @@ function boardSvg() {
 
 function cross(i, cls, size = 26) {
   const n = P.n;
-  const cx = (i % n) * CELL + CELL / 2, cy = Math.floor(i / n) * CELL + CELL / 2;
+  const x = (i % n) * CELL, y = Math.floor(i / n) * CELL;
+  const cx = x + CELL / 2, cy = y + CELL / 2;
   const j = ((i * 37) % 7) - 3; // hand-drawn wobble
-  return `<path class="${cls}" d="M${cx - size} ${cy - size + j} L${cx + size} ${cy + size - j} M${cx + size + j} ${cy - size} L${cx - size - j} ${cy + size}"/>`;
+  return `<rect class="${cls}-shade" x="${x}" y="${y}" width="${CELL}" height="${CELL}"/><path class="${cls}" d="M${cx - size} ${cy - size + j} L${cx + size} ${cy + size - j} M${cx + size + j} ${cy - size} L${cx - size - j} ${cy + size}"/>`;
 }
 
 function renderDynamic() {
@@ -224,7 +248,7 @@ function renderDynamic() {
     if (occupied.has(i) || !isFree(P, i)) continue;
     const auto = store.settings.autoX && (rows.has(Math.floor(i / n)) || cols.has(i % n));
     if (S.marks.has(i)) out.push(cross(i, 'mark'));
-    else if (auto) out.push(cross(i, 'ghost', 20));
+    else if (auto) out.push(cross(i, 'ghost', 22));
     // notes are kept but hidden while crossed out or once that person is placed
     const ks = [...(S.notes.get(i) || [])].filter((k) => S.placed[k] == null);
     if (ks.length && !auto && !S.marks.has(i)) out.push(notesSvg(i, ks));
@@ -250,12 +274,14 @@ function renderDynamic() {
   dyn.innerHTML = out.join('');
   S.fresh = null;
 
+  const refs = S.selected != null && store.settings.highlight ? referencedPeople(S.selected) : new Set();
   document.querySelectorAll('.card').forEach((el) => {
     const k = Number(el.dataset.person);
     el.classList.toggle('selected', k === S.selected);
     el.classList.toggle('placed', S.placed[k] != null);
     el.classList.toggle('flagged', k === S.flagged);
     el.classList.toggle('hinted', k === S.hintFocus);
+    el.classList.toggle('ref', refs.has(k));
     el.setAttribute('aria-pressed', String(k === S.selected));
   });
   const undo = $('[data-act="undo"]');
@@ -276,17 +302,23 @@ function renderDynamic() {
 // every shelf for "beside a shelf", the whole room for "in the Library".
 function clueHighlights(k) {
   const n = P.n, out = [];
+  const box = (i) => `<rect class="clue-hi" x="${(i % n) * CELL + 5}" y="${Math.floor(i / n) * CELL + 5}" width="${CELL - 10}" height="${CELL - 10}" rx="12"/>`;
+  const tint = (i) => `<rect class="area-hi" x="${(i % n) * CELL}" y="${Math.floor(i / n) * CELL}" width="${CELL}" height="${CELL}"/>`;
+  const EDGE = { top: (i) => i < n, bottom: (i) => i >= n * (n - 1), left: (i) => i % n === 0, right: (i) => i % n === n - 1 };
   for (const c of P.people[k].clues) {
     for (let i = 0; i < n * n; i++) {
-      const x = (i % n) * CELL, y = Math.floor(i / n) * CELL;
-      if ((c.type === 'on' || c.type === 'beside') && P.cells[i].obj === c.obj) {
-        out.push(`<rect class="clue-hi" x="${x + 5}" y="${y + 5}" width="${CELL - 10}" height="${CELL - 10}" rx="12"/>`);
-      } else if (c.type === 'in' && P.cells[i].area === c.area) {
-        out.push(`<rect class="area-hi" x="${x}" y="${y}" width="${CELL}" height="${CELL}"/>`);
-      }
+      if (c.obj && P.cells[i].obj === c.obj) out.push(box(i));
+      else if (c.area != null && P.cells[i].area === c.area) out.push(tint(i));
+      else if (c.type === 'edge' && EDGE[c.side](i)) out.push(tint(i));
     }
+    if (c.type === 'rel' && S.placed[c.who] != null) out.push(box(S.placed[c.who]));
   }
   return out;
+}
+
+// People that the selected person's statement mentions ("one row north of Hugo").
+function referencedPeople(k) {
+  return new Set(P.people[k].clues.filter((c) => c.who != null).map((c) => c.who));
 }
 
 // Pencil marks: each person has a fixed slot (3 per row), top and bottom of the cell
@@ -572,8 +604,10 @@ function restart() {
 
 function doRestart() {
   delete store.progress[P.seed];
+  S = null; // otherwise openCase would save the current board straight back
   closeModal();
   openCase(P.seed);
+  toast('Case restarted. Fresh start, detective.', false);
 }
 
 // ---------- overlays ----------
@@ -626,12 +660,14 @@ function showRules() {
       <li>Chairs, beds, rugs and benches can be stood on (✓). Everything else blocks the square.</li>
       <li><b>Beside</b> means directly above, below, left or right — and in the same room.</li>
       <li>The victim was <b>alone with the murderer</b>: exactly one suspect shares the victim's room.</li>
+      <li>North is the top of the board. "One row north of Hugo" means the row directly above his; "somewhere north" means any row above.</li>
+      <li><b>The only one</b> in a room (or on a kind of seat) means nobody else was there.</li>
       <li>Place everyone, and the killer is revealed.</li>
     </ul>
     <p><b>Controls.</b> Tap a statement to pick that person. Then <b>tap</b> a square to pencil in their initial, or <b>swipe</b> across squares to note several at once. <b>Hold</b> a square to place them for good: their row and column get crossed out. Hold their letter to take them back off. Use <b>Cross</b> to tap or swipe ✕ onto squares yourself.</p>
     <div class="mini-legend">${legend}</div>
     <label class="setting"><input type="checkbox" id="opt-autox" ${store.settings.autoX ? 'checked' : ''}> Cross out the row and column of everyone placed</label>
-    <label class="setting"><input type="checkbox" id="opt-highlight" ${store.settings.highlight ? 'checked' : ''}> Highlight the objects a selected statement mentions</label>
+    <label class="setting"><input type="checkbox" id="opt-highlight" ${store.settings.highlight ? 'checked' : ''}> Highlight what a selected statement mentions</label>
     <div class="actions"><button class="tool primary" data-act="close">Back to the case</button></div>`);
   $('#opt-autox').addEventListener('change', (ev) => {
     store.settings.autoX = ev.target.checked;

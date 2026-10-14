@@ -9,7 +9,7 @@
 
 import { Rng } from './rng.js';
 import { OBJECTS, ROOM_TYPES, INDOOR_PATTERNS, ROLES, NAMES, ESTATES, HEADLINES, LEDES } from './themes.js';
-import { trueCluesAt, domainFor } from './clues.js';
+import { trueCluesFor, ownDomainSize } from './clues.js';
 import { countSolutions, logicalSolve } from './solver.js';
 
 export const DIFFICULTY = {
@@ -168,11 +168,10 @@ function makeCast(rng, n) {
 function chooseClues(rng, p, target) {
   const options = p.people.map((person, k) => {
     if (person.isVictim) return [];
-    return trueCluesAt(p, p.solution[k]).map((c) => {
-      const size = domainFor(p, { clues: [c] }).length;
-      // object clues are more fun than "in the Kitchen"; avoid clues that point at a single cell
-      let w = c.type === 'in' ? 1 : 2.5;
-      if (size === 1) w *= 0.5;
+    // easy cases stick to statements about the room and its furniture
+    return trueCluesFor(p, k).filter(([c]) => target.maxLevel > 1 || c.type !== 'rel').map(([c, w]) => {
+      // avoid statements that point straight at a single square
+      if (ownDomainSize(p, c) === 1) w *= 0.5;
       return [c, w];
     });
   });

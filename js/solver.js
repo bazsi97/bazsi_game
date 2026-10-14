@@ -3,7 +3,7 @@
 //  - logicalSolve: solves like a human would, technique by technique, used to RATE difficulty
 //    and to give hints in a sensible order.
 
-import { domainFor } from './clues.js';
+import { domainFor, relationsOf, CLUES } from './clues.js';
 
 export function victimIndex(p) {
   return p.people.findIndex((x) => x.isVictim);
@@ -20,7 +20,10 @@ export function aloneOk(p, pos) {
 
 export function countSolutions(p, limit = 2) {
   const n = p.n;
-  const doms = p.people.map((pr) => domainFor(p, pr));
+  const doms = p.people.map((_, k) => domainFor(p, k));
+  // binary clues ("one row north of Hugo") are checked as soon as both people are placed
+  const relsBy = p.people.map(() => []);
+  for (const r of relationsOf(p)) { relsBy[r.k].push(r); relsBy[r.who].push(r); }
   const order = p.people.map((_, k) => k)
     .sort((a, b) => (p.people[a].isVictim - p.people[b].isVictim) || doms[a].length - doms[b].length);
   const rowUsed = new Array(n).fill(false);
@@ -42,10 +45,15 @@ export function countSolutions(p, limit = 2) {
     for (const i of doms[k]) {
       const r = Math.floor(i / n), c = i % n;
       if (rowUsed[r] || colUsed[c]) continue;
-      rowUsed[r] = colUsed[c] = true;
       pos[k] = i;
-      rec(d + 1);
-      rowUsed[r] = colUsed[c] = false;
+      const ok = relsBy[k].every((x) => pos[x.k] == null || pos[x.who] == null
+        || CLUES.rel.rel(p, x.clue, pos[x.k], pos[x.who]));
+      if (ok) {
+        rowUsed[r] = colUsed[c] = true;
+        rec(d + 1);
+        rowUsed[r] = colUsed[c] = false;
+      }
+      pos[k] = undefined;
     }
   })(0);
 
@@ -57,7 +65,8 @@ export function logicalSolve(p) {
   const n = p.n;
   const P = p.people.length;
   const vi = victimIndex(p);
-  const cand = p.people.map((pr) => new Set(domainFor(p, pr)));
+  const cand = p.people.map((_, k) => new Set(domainFor(p, k)));
+  const rels = relationsOf(p);
   const placed = new Array(P).fill(false);
   const order = [];
   const used = {};
@@ -169,7 +178,20 @@ export function logicalSolve(p) {
     return false;
   }
 
-  const techniques = [singles, hiddenLine, pointing, alone, subsets];
+  // Binary clues: keep a cell only if the other person still has a compatible cell.
+  // Easy when the other person is already placed, medium otherwise.
+  function relations() {
+    for (const { k, who, clue } of rels) {
+      const easy = placed[k] || placed[who];
+      const compatible = (x, y) => x !== y && lines.every((L) => L(x) !== L(y)) && CLUES.rel.rel(p, clue, x, y);
+      let ch = removeWhere(k, (x) => ![...cand[who]].some((y) => compatible(x, y)));
+      ch = removeWhere(who, (y) => ![...cand[k]].some((x) => compatible(x, y))) || ch;
+      if (ch) { bump(easy ? 1 : 2, 'relation'); return true; }
+    }
+    return false;
+  }
+
+  const techniques = [singles, hiddenLine, pointing, relations, alone, subsets];
   while (!placed.every(Boolean)) {
     if (cand.some((s) => s.size === 0)) break;
     if (!techniques.some((t) => t())) break;
