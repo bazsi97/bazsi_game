@@ -129,7 +129,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .board .mark { stroke: var(--ink); stroke-width: 8; stroke-linecap: round; fill: none; }
 .board .token circle.ring { fill: var(--pc-tint, var(--paper)); stroke: var(--pc, var(--ink)); stroke-width: 6; }
 .board .token circle.inner { fill: none; stroke: var(--pc, var(--ink)); stroke-width: 1.5; }
-.board .token text { font-family: var(--display); font-weight: 900; font-size: 44px; fill: var(--pc, var(--ink)); text-anchor: middle; dominant-baseline: central; }
+.board .token text { font-family: var(--display); font-weight: 900; font-size: 44px; fill: var(--pc, var(--ink)); text-anchor: middle; }
 .board .token.victim circle.ring { stroke: var(--red); }
 .board .token.victim text { fill: var(--red); }
 .board .token.selected circle.ring { stroke-width: 8; }
@@ -141,7 +141,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .board .clue-hi { fill: var(--red); fill-opacity: 0.1; stroke: var(--red); stroke-width: 4; stroke-dasharray: 10 6; }
 .board .area-hi { fill: var(--red); opacity: 0.09; }
 .board .note {
-  font-family: var(--display); font-weight: 900; font-size: 26px; fill: var(--ink); text-anchor: middle; dominant-baseline: central;
+  font-family: var(--display); font-weight: 900; font-size: 26px; fill: var(--ink); text-anchor: middle;
   stroke: var(--paper); stroke-width: 5px; paint-order: stroke; stroke-linejoin: round;
 }
 

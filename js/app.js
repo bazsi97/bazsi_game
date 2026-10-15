@@ -7,6 +7,9 @@ import { objectSvg, portraitSvg, patternDefsSvg } from './art.js';
 
 const STORE_KEY = 'murdoku:v2';
 const CELL = 100;
+// Centre a capital letter on a point by its cap height (Playfair Display: 0.708em) rather than
+// dominant-baseline, which iOS Safari positions differently from other browsers.
+const CAP_OFFSET = (fontSize) => +(fontSize * 0.708 / 2).toFixed(1);
 const $ = (sel, el = document) => el.querySelector(sel);
 
 const store = loadStore();
@@ -365,7 +368,7 @@ function renderDynamic() {
     if (S.solved && k === P.murderer) cls.push('killer');
     const ink = inkOf(k);
     const style = S.solved && k === P.murderer ? `--pc:${ink};--pc-tint:${ink}` : `--pc:${ink};--pc-tint:${tintOf(k)}`;
-    out.push(`<g class="${cls.join(' ')}" style="${style}"><g transform="translate(${cx} ${cy})"><circle class="ring" r="32"/><circle class="inner" r="26"/><text y="2">${person.initial}</text></g></g>`);
+    out.push(`<g class="${cls.join(' ')}" style="${style}"><g transform="translate(${cx} ${cy})"><circle class="ring" r="32"/><circle class="inner" r="26"/><text y="${CAP_OFFSET(44)}">${person.initial}</text></g></g>`);
   }
   dyn.innerHTML = out.join('');
   S.fresh = null;
@@ -426,7 +429,7 @@ function notesSvg(i, ks) {
   const ys = rowsN === 1 ? [22] : rowsN === 2 ? [21, 81] : [21, 51, 81];
   return ks.sort((a, b) => a - b).map((k) => {
     const x = x0 + 22 + (k % 3) * 28, y = y0 + ys[Math.floor(k / 3)];
-    return `<text class="note" x="${x}" y="${y}" style="fill:${inkOf(k)}">${P.people[k].initial}</text>`;
+    return `<text class="note" x="${x}" y="${y + CAP_OFFSET(26)}" style="fill:${inkOf(k)}">${P.people[k].initial}</text>`;
   }).join('');
 }
 
