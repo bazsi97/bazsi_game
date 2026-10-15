@@ -272,13 +272,14 @@ export function makeLook(person) {
   };
 }
 
-export function portraitSvg(person, { dead = false } = {}) {
+export function portraitSvg(person, { dead = false, color = null, tint = null } = {}) {
   const L = makeLook(person);
   const { cx, cy } = HEAD;
   const parts = [];
+  if (tint) parts.push(`<rect x="0" y="0" width="100" height="100" fill="${tint}"/>`);
   parts.push(`<rect x="0" y="0" width="100" height="100" fill="url(#pt-halftone)" opacity="0.55"/>`);
   if (LONG_BACK.has(L.hair) && L.hat !== 'chef') parts.push(HAIR[L.hair]);
-  parts.push(OUTFITS[L.outfit]);
+  parts.push(`<g class="outfit">${OUTFITS[L.outfit]}</g>`);
   parts.push(`<path class="f" d="M43 62 L43 78 Q50 81 57 78 L57 62 Z"/><path class="sh" d="M43 66 Q50 72 57 66 L57 70 Q50 75 43 70 Z"/>`);
   parts.push(`<circle class="f" cx="${cx - L.rx}" cy="${cy + 2}" r="4.5"/><circle class="f" cx="${cx + L.rx}" cy="${cy + 2}" r="4.5"/>`);
   if (L.earrings) parts.push(`<circle class="d" cx="${cx - L.rx}" cy="${cy + 8}" r="2"/><circle class="d" cx="${cx + L.rx}" cy="${cy + 8}" r="2"/>`);
@@ -305,7 +306,8 @@ export function portraitSvg(person, { dead = false } = {}) {
   if (!LONG_BACK.has(L.hair) || L.hat) parts.push(L.hat && L.hair === 'long' ? HAIR.slick : HAIR[L.hair]);
   else parts.push(`<path class="d" d="M31 46 C28 26 40 22 50 22 C62 22 72 26 69 46 C64 36 58 32 50 32 C42 32 36 36 31 46 Z"/>`);
   if (L.hat) parts.push(HATS[L.hat]);
-  return `<svg class="art portrait" viewBox="0 0 100 100" aria-hidden="true">${parts.join('')}</svg>`;
+  const style = color ? ` style="--pc:${color}"` : '';
+  return `<svg class="art portrait" viewBox="0 0 100 100" aria-hidden="true"${style}>${parts.join('')}</svg>`;
 }
 
 export function patternDefsSvg() {

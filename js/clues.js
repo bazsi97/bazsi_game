@@ -43,7 +43,7 @@ function lineHas(p, i, kind, byRow) {
   return false;
 }
 
-const name = (p, c) => `<b>${p.people[c.who].name}</b>`;
+const name = (p, c) => `<b class="who" data-who="${c.who}">${p.people[c.who].name}</b>`;
 const objName = (c) => `<b>${OBJECTS[c.obj].name}</b>`;
 
 const EDGES = {

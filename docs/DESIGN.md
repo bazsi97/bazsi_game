@@ -48,6 +48,7 @@ Hints follow the same deduction order, so a hint is always the *next sensible st
 
 - **Case number = seed.** Case 1,000,000 is generated on the device in ~50ms. Nothing to store, host or
   author, and both of you see the same case for the same number (good for racing each other).
+- **Three series:** Easy (5×5, furniture and rooms only), Medium (6×6, at most one exact person-to-person statement), Hard (6×6, several, including vague ones). Each series is numbered from 1, and the front page always offers the lowest case not yet played, so solved cases never repeat on a device.
 - **Daily case:** seed = date. **Difficulty curve:** derive grid size and target from the case number
   (e.g. 5×5 → 9×9, more rooms, more two-part statements, the alone rule doing more of the work).
 - **Content packs, not code:** rooms/furniture/cast/headlines live in `themes.js`. A new setting

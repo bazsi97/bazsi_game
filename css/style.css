@@ -121,31 +121,30 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .board .tag rect { fill: var(--paper); stroke: var(--ink); stroke-width: 2.4; }
 .board .tag text { font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: 0.06em; fill: var(--ink); text-transform: uppercase; }
 .board .obj { opacity: 1; transition: opacity 0.2s; }
-.board .ghost { stroke: var(--ink); stroke-width: 5; opacity: 0.75; stroke-linecap: round; }
-.board .ghost-shade { fill: var(--ink); opacity: 0.3; }
-.board .mark-shade { fill: var(--ink); opacity: 0.42; }
+.board .excluded { stroke: var(--ink); stroke-width: 7; opacity: 0.8; stroke-linecap: round; fill: none; }
+.board .excluded-shade { fill: var(--ink); opacity: 0.36; }
 .board .press { fill: none; stroke: var(--red); stroke-width: 7; stroke-dasharray: 100; stroke-dashoffset: 100; stroke-linecap: round;
   transform-box: fill-box; transform-origin: center; transform: rotate(-90deg); animation: press linear forwards; }
 @keyframes press { to { stroke-dashoffset: 0; } }
 .board .mark { stroke: var(--ink); stroke-width: 8; stroke-linecap: round; fill: none; }
-.board .token circle.ring { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
-.board .token circle.inner { fill: none; stroke: var(--ink); stroke-width: 1.5; }
-.board .token text { font-family: var(--display); font-weight: 900; font-size: 44px; fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.board .token circle.ring { fill: var(--pc-tint, var(--paper)); stroke: var(--pc, var(--ink)); stroke-width: 6; }
+.board .token circle.inner { fill: none; stroke: var(--pc, var(--ink)); stroke-width: 1.5; }
+.board .token text { font-family: var(--display); font-weight: 900; font-size: 44px; fill: var(--pc, var(--ink)); text-anchor: middle; dominant-baseline: central; }
 .board .token.victim circle.ring { stroke: var(--red); }
 .board .token.victim text { fill: var(--red); }
 .board .token.selected circle.ring { stroke-width: 8; }
 .board .token.conflict circle.ring { stroke: var(--red); stroke-dasharray: 8 5; }
 .board .token.flagged circle.ring { stroke: var(--red); stroke-width: 8; }
 .board .token.fresh { animation: stamp 0.28s cubic-bezier(.3,1.6,.5,1) both; transform-box: fill-box; transform-origin: center; }
-.board .token.killer circle.ring { fill: var(--ink); }
+.board .token.killer circle.ring { fill: var(--pc); }
 .board .token.killer text { fill: var(--paper); }
 .board .clue-hi { fill: var(--red); fill-opacity: 0.1; stroke: var(--red); stroke-width: 4; stroke-dasharray: 10 6; }
 .board .area-hi { fill: var(--red); opacity: 0.09; }
 .board .note {
-  font-family: var(--display); font-weight: 900; font-size: 23px; fill: var(--ink); text-anchor: middle; dominant-baseline: central;
+  font-family: var(--display); font-weight: 900; font-size: 26px; fill: var(--ink); text-anchor: middle; dominant-baseline: central;
   stroke: var(--paper); stroke-width: 5px; paint-order: stroke; stroke-linejoin: round;
 }
-.board .note.victim { fill: var(--red); }
+
 .board .cell-hi { fill: var(--ink); opacity: 0.07; }
 .board .scene-ring { fill: none; stroke: var(--red); stroke-width: 6; stroke-dasharray: 14 8; }
 @keyframes stamp { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -164,18 +163,21 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   box-shadow: 3px 3px 0 var(--ink); transition: transform 0.12s, box-shadow 0.12s;
 }
 .card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
-.card .frame { border: 1.5px solid var(--ink); background: var(--paper-2); aspect-ratio: 1; overflow: hidden; position: relative; }
+.card { border-top: 6px solid var(--pc, var(--ink)); }
+.card .frame { border: 1.5px solid var(--ink); background: var(--pc-tint, var(--paper-2)); aspect-ratio: 1; overflow: hidden; position: relative; }
 .card .frame svg { width: 100%; height: 100%; display: block; }
-.card .name { font-family: var(--display); font-weight: 900; font-size: 1.02rem; line-height: 1.05; display: flex; align-items: baseline; gap: 5px; overflow: hidden; text-overflow: ellipsis; }
+.card .name { font-family: var(--display); font-weight: 900; font-size: 1.02rem; line-height: 1.05; display: flex; align-items: baseline; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
+.card .name { color: var(--pc, var(--ink)); }
 .card .name .init {
   display: inline-grid; place-items: center; width: 1.25em; height: 1.25em; border-radius: 50%;
-  border: 2px solid var(--ink); font-size: 0.8em; flex: none;
+  border: 2px solid var(--pc, var(--ink)); background: var(--pc, var(--ink)); color: var(--paper); font-size: 0.8em; flex: none;
 }
+.portrait .outfit .d { fill: var(--pc, var(--ink)); stroke: var(--ink); }
 .card .role { font-style: italic; font-size: 0.78rem; color: var(--ink-2); line-height: 1; }
 .card .clue { font-family: var(--type); font-size: 0.8rem; line-height: 1.25; grid-column: 1 / 3; align-self: start; }
 .card .meta { min-width: 0; }
 .card .clue b { font-weight: normal; text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 2px; }
-.card.selected { background: var(--paper-2); box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--ink); transform: translateY(-2px); }
+.card.selected { background: var(--pc-tint, var(--paper-2)); box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--pc, var(--ink)); transform: translateY(-2px); }
 .card.placed::after {
   content: 'PLACED'; position: absolute; right: -6px; top: -8px; transform: rotate(8deg);
   font-family: var(--type); font-size: 0.62rem; letter-spacing: 0.1em; border: 2px solid var(--ink);
@@ -255,7 +257,12 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   .card { padding: 4px 4px 6px; box-shadow: 2px 2px 0 var(--ink); }
   .card .name { font-size: 0.86rem; }
   .card .name .init { display: none; }
-  .card { grid-template-columns: 38px minmax(0, 1fr); gap: 4px 5px; }
+  .card { grid-template-columns: 38px minmax(0, 1fr); gap: 4px 6px; grid-template-areas: 'frame role' 'name name' 'clue clue'; }
+  .card .meta { display: contents; }
+  .card .frame { grid-area: frame; }
+  .card .role { grid-area: role; align-self: center; }
+  .card .name { grid-area: name; }
+  .card .clue { grid-area: clue; }
   .card .clue { font-size: 0.72rem; }
   .card .role { font-size: 0.68rem; }
   .story .lede { font-size: 0.9rem; }
@@ -291,3 +298,32 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- front page ---------- */
+.home-main { max-width: 860px; margin: 14px auto 0; display: grid; gap: 16px; }
+.home .headline { font-family: var(--display); font-weight: 900; text-transform: uppercase; text-align: center; margin: 0; font-size: clamp(1.5rem, 6vw, 2.4rem); line-height: 1.05; text-wrap: balance; }
+.detective-name { display: flex; align-items: baseline; justify-content: center; gap: 10px; flex-wrap: wrap; font-family: var(--type); font-size: 0.85rem; }
+.detective-name input {
+  font: 700 1.1rem var(--display); color: var(--ink); background: transparent; border: 0; border-bottom: 2px solid var(--ink);
+  padding: 2px 4px; width: 12em; max-width: 100%; text-align: center;
+}
+.detective-name input:focus { outline: none; border-bottom-color: var(--red); }
+.resume {
+  display: grid; gap: 2px; text-align: center; cursor: pointer; padding: 12px; background: var(--ink); color: var(--paper);
+  border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--red);
+}
+.resume .kicker { font-family: var(--type); letter-spacing: 0.2em; font-size: 0.75rem; text-transform: uppercase; }
+.resume-title { font-family: var(--display); font-weight: 900; font-size: 1.3rem; }
+.desks { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.desk { border: 2px solid var(--ink); background: var(--paper); box-shadow: 4px 4px 0 var(--ink); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; }
+.desk-head { display: flex; justify-content: space-between; font-family: var(--type); font-size: 0.8rem; }
+.desk h3 { font-family: var(--display); font-weight: 900; text-transform: uppercase; font-size: 1.9rem; margin: 0; line-height: 1; }
+.desk-beat { font-family: var(--display); font-style: italic; }
+.desk p { margin: 0 0 6px; font-size: 0.92rem; flex: 1; }
+.desk .tool.primary { background: var(--ink); color: var(--paper); }
+.desk-open { font-family: var(--type); font-size: 0.8rem; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.desk-open button { border: 1.5px solid var(--ink); background: var(--paper); padding: 4px 8px; cursor: pointer; font-family: var(--type); }
+.home-foot { text-align: center; font-size: 0.85rem; font-style: italic; margin: 6px 0 0; }
+.link { background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; font: inherit; }
+.mast-meta .back { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; border: 1.5px solid var(--ink); padding: 4px 8px; }
+.home .page, .page.home { padding-bottom: 24px; }

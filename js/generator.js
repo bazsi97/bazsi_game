@@ -12,13 +12,15 @@ import { OBJECTS, ROOM_TYPES, INDOOR_PATTERNS, ROLES, NAMES, ESTATES, HEADLINES,
 import { trueCluesFor, ownDomainSize } from './clues.js';
 import { countSolutions, logicalSolve } from './solver.js';
 
+// relMax: how many person-to-person statements a case may use ("one row north of Hugo").
+// vague: whether the fuzzy ones ("somewhere north of Hugo") are allowed.
 export const DIFFICULTY = {
-  easy: { maxLevel: 1, maxInitialSingles: 2, minLevel: 1 },
-  medium: { maxLevel: 2, maxInitialSingles: 1, minLevel: 1 },
-  hard: { maxLevel: 2, maxInitialSingles: 1, minLevel: 2 },
+  easy: { n: 5, maxLevel: 1, minLevel: 1, maxInitialSingles: 2, relMax: 0, vague: false },
+  medium: { n: 6, maxLevel: 2, minLevel: 1, maxInitialSingles: 1, relMax: 1, vague: false },
+  hard: { n: 6, maxLevel: 2, minLevel: 2, maxInitialSingles: 0, relMax: 3, vague: true },
 };
 
-export function generatePuzzle({ seed = 1, n = 6, difficulty = 'medium' } = {}) {
+export function generatePuzzle({ seed = 1, difficulty = 'medium', n = DIFFICULTY[difficulty].n } = {}) {
   const rng = new Rng(`murdoku:${seed}:${n}:${difficulty}`);
   const target = DIFFICULTY[difficulty];
   for (let attempt = 0; attempt < 200; attempt++) {
@@ -33,13 +35,13 @@ export function generatePuzzle({ seed = 1, n = 6, difficulty = 'medium' } = {}) 
     }
   }
   // Never leave a player without a case: fall back to an easier target with the same seed.
-  if (difficulty === 'hard') return generatePuzzle({ seed, n, difficulty: 'medium' });
-  if (difficulty === 'medium') return generatePuzzle({ seed, n, difficulty: 'easy' });
+  if (difficulty === 'hard') return { ...generatePuzzle({ seed, n, difficulty: 'medium' }), difficulty };
+  if (difficulty === 'medium') return { ...generatePuzzle({ seed, n, difficulty: 'easy' }), difficulty };
   throw new Error(`Could not generate puzzle for seed ${seed}`);
 }
 
 function makeLayout(rng, n) {
-  const k = n <= 5 ? rng.range(3, 4) : rng.range(4, 5);
+  const k = n <= 5 ? rng.range(3, 4) : n === 6 ? rng.range(4, 5) : rng.range(5, 6);
   const grid = makeAreas(rng, n, k);
   const areaCount = Math.max(...grid) + 1;
 
@@ -169,7 +171,8 @@ function chooseClues(rng, p, target) {
   const options = p.people.map((person, k) => {
     if (person.isVictim) return [];
     // easy cases stick to statements about the room and its furniture
-    return trueCluesFor(p, k).filter(([c]) => target.maxLevel > 1 || c.type !== 'rel').map(([c, w]) => {
+    const allowed = ([c]) => c.type !== 'rel' || (target.relMax > 0 && (target.vague || isExact(c)));
+    return trueCluesFor(p, k).filter(allowed).map(([c, w]) => {
       // avoid statements that point straight at a single square
       if (ownDomainSize(p, c) === 1) w *= 0.5;
       return [c, w];
@@ -177,15 +180,23 @@ function chooseClues(rng, p, target) {
   });
 
   for (let tries = 0; tries < 150; tries++) {
+    let relLeft = target.relMax;
+    const pick = (opts) => {
+      const usable = opts.filter(([c]) => c.type !== 'rel' || relLeft > 0);
+      const c = rng.weighted(usable.length ? usable : opts);
+      if (c.type === 'rel') relLeft--;
+      return c;
+    };
     p.people.forEach((person, k) => {
-      person.clues = person.isVictim ? [] : [rng.weighted(options[k])];
+      person.clues = person.isVictim ? [] : [pick(options[k])];
     });
     if (tries >= 90) {
       // later tries: one suspect gets a second statement
       const k = rng.int(p.people.length - 1);
       const extra = options[k].filter(([c]) => !sameClue(c, p.people[k].clues[0]));
-      if (extra.length) p.people[k].clues.push(rng.weighted(extra));
+      if (extra.length) p.people[k].clues.push(pick(extra));
     }
+    if (relLeft < 0) continue;
     const { count } = countSolutions(p, 2);
     if (count !== 1) continue;
     const rating = logicalSolve(p);
@@ -199,6 +210,7 @@ function chooseClues(rng, p, target) {
   return false;
 }
 
+const isExact = (c) => c.rel.length === 2 || c.rel === 'diag';
 const sameClue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 function dressCase(rng, p) {

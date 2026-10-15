@@ -1,11 +1,11 @@
-// UI: renders a case, handles taps, saves progress.
+// UI: front page (pick a case), the case itself, taps, saved progress.
 
-import { generatePuzzle } from './generator.js';
+import { generatePuzzle, DIFFICULTY } from './generator.js';
 import { clueText, isFree } from './clues.js';
 import { OBJECTS } from './themes.js';
 import { objectSvg, portraitSvg, patternDefsSvg } from './art.js';
 
-const STORE_KEY = 'murdoku:v1';
+const STORE_KEY = 'murdoku:v2';
 const CELL = 100;
 const $ = (sel, el = document) => el.querySelector(sel);
 
@@ -14,11 +14,11 @@ let P = null; // current puzzle
 let S = null; // play state
 let toastTimer = null;
 
+// Saved per device: { detective, settings, progress: { 'medium-3': {...} }, last: 'medium-3' }
 function loadStore() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { /* private mode */ }
-  s.level ||= 1;
-  s.maxLevel ||= s.level;
+  s.detective ??= '';
   s.progress ||= {};
   s.settings ||= {};
   s.settings.autoX ??= true;
@@ -30,8 +30,9 @@ function saveStore() {
     const now = Date.now();
     if (!S.solved && !document.hidden) S.elapsed += now - S.tick;
     S.tick = now;
-    store.progress[P.seed] = {
-      placed: S.placed, marks: [...S.marks], notes: notesToJson(S.notes), hints: S.hints, elapsed: S.elapsed, solved: S.solved,
+    store.progress[P.key] = {
+      placed: S.placed, marks: [...S.marks], notes: notesToJson(S.notes), hints: S.hints, elapsed: S.elapsed,
+      solved: S.solved, touched: S.placed.some((x) => x != null) || S.marks.size > 0 || S.notes.size > 0,
     };
   }
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch { /* ignore */ }
@@ -41,18 +42,53 @@ function saveStore() {
 const notesToJson = (notes) => [...notes].filter(([, ks]) => ks.size).map(([i, ks]) => [i, [...ks]]);
 const notesFromJson = (arr) => new Map((arr || []).map(([i, ks]) => [i, new Set(ks)]));
 
-const difficultyFor = (level) => (level % 5 === 0 ? 'hard' : 'medium');
-const STARS = { easy: '★☆☆ Easy', medium: '★★☆ Medium', hard: '★★★ Hard' };
+const DESKS = {
+  easy: { name: 'Easy', stars: '★☆☆', beat: 'The Village Beat', blurb: 'A 5×5 scene. Statements about rooms and furniture only.' },
+  medium: { name: 'Medium', stars: '★★☆', beat: 'The City Desk', blurb: 'A 6×6 scene, with at most one "one row north of…" twist.' },
+  hard: { name: 'Hard', stars: '★★★', beat: 'The Night Shift', blurb: 'A 6×6 scene full of who-stood-where-of-whom.' },
+};
+const caseKey = (d, n) => `${d}-${n}`;
+const parseKey = (k) => { const m = /^(easy|medium|hard)-(\d+)$/.exec(k || ''); return m ? [m[1], Number(m[2])] : null; };
+const solvedCount = (d) => Object.entries(store.progress).filter(([k, v]) => k.startsWith(d + '-') && v.solved).length;
+// the lowest case number not yet played, so solved cases never come round again
+function nextNewCase(d) {
+  let n = 1;
+  while (store.progress[caseKey(d, n)]?.solved || store.progress[caseKey(d, n)]?.touched) n++;
+  return n;
+}
+const inProgress = (d) => Object.entries(store.progress)
+  .filter(([k, v]) => k.startsWith(d + '-') && !v.solved && v.touched)
+  .map(([k]) => parseKey(k)[1]).sort((a, b) => a - b);
+
+// ---------- colours ----------
+// Each suspect gets an ink of their own; the victim is always printed in red.
+const INKS = ['#1f5fa8', '#2e7d32', '#c25e00', '#7b3fa0', '#00838f', '#ad1457', '#5d6b1f', '#3949ab'];
+const VICTIM_INK = '#a3241b';
+const PAPER = '#f1e9d6';
+function mixHex(a, b, t) {
+  const pa = a.match(/\w\w/g).map((h) => parseInt(h, 16)), pb = b.match(/\w\w/g).map((h) => parseInt(h, 16));
+  return '#' + pa.map((v, i) => Math.round(v * t + pb[i] * (1 - t)).toString(16).padStart(2, '0')).join('');
+}
+const inkOf = (k) => (P.people[k].isVictim ? VICTIM_INK : INKS[k % INKS.length]);
+const tintOf = (k) => mixHex(inkOf(k), PAPER, 0.16);
 
 // ---------- case lifecycle ----------
 
-function openCase(level) {
+function setHash(h) {
+  try {
+    if (location.hash !== h) history.replaceState(null, '', h || location.pathname);
+  } catch { /* sandboxed frames may refuse URL changes */ }
+}
+
+function openCase(d, n) {
   if (S && P) saveStore();
-  level = Math.max(1, level);
-  store.level = level;
-  store.maxLevel = Math.max(store.maxLevel, level);
-  P = generatePuzzle({ seed: level, n: 6, difficulty: difficultyFor(level) });
-  const saved = store.progress[level];
+  n = Math.max(1, n);
+  P = generatePuzzle({ seed: n, difficulty: d });
+  P.key = caseKey(d, n);
+  P.num = n;
+  P.desk = d;
+  store.last = P.key;
+  const saved = store.progress[P.key];
   S = {
     placed: saved?.placed ?? new Array(P.people.length).fill(null),
     marks: new Set(saved?.marks ?? []),
@@ -68,11 +104,20 @@ function openCase(level) {
     flagged: null,
     hintFocus: null,
   };
-  try {
-    if (location.hash !== `#${level}`) history.replaceState(null, '', `#${level}`);
-  } catch { /* sandboxed frames may refuse URL changes */ }
+  setHash(`#${P.key}`);
   renderPage();
   saveStore();
+  window.scrollTo(0, 0);
+}
+
+function showHome() {
+  if (S && P) saveStore();
+  P = null;
+  S = null;
+  setHash('');
+  closeModal();
+  renderHome();
+  window.scrollTo(0, 0);
 }
 
 // ---------- rendering ----------
@@ -85,25 +130,71 @@ const ICONS = {
   rules: '<svg viewBox="0 0 24 24"><path d="M4 4h12l4 4v12H4z"/><path d="M8 10h8M8 14h8M8 18h5"/></svg>',
 };
 
-function renderPage() {
-  const app = $('#app');
+const escapeHtml = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const detective = () => (store.detective ? `Detective ${escapeHtml(store.detective)}` : 'detective');
+
+function mastheadHtml(meta) {
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  app.innerHTML = `
+  return `
+    <header class="masthead">
+      <div class="mast-meta">${meta}</div>
+      <h1 class="mast-title"><span class="the">The</span>Murdoku Gazette</h1>
+      <div class="mast-rule"></div>
+      <div class="mast-sub"><span>${today}</span><span>Price: one clue</span></div>
+    </header>`;
+}
+
+function renderHome() {
+  const total = ['easy', 'medium', 'hard'].reduce((a, d) => a + solvedCount(d), 0);
+  const last = parseKey(store.last);
+  const lastP = last && store.progress[store.last];
+  const resume = lastP && !lastP.solved && lastP.touched
+    ? `<button class="resume" data-act="open" data-case="${store.last}">
+         <span class="kicker">Unfinished business</span>
+         <span class="resume-title">Continue ${DESKS[last[0]].name} Case No. ${last[1]} ▸</span>
+       </button>` : '';
+  const desks = Object.entries(DESKS).map(([d, D]) => {
+    const open = inProgress(d).filter((n) => caseKey(d, n) !== store.last).slice(0, 4);
+    return `
+      <article class="desk">
+        <div class="desk-head"><span class="desk-stars">${D.stars}</span><span class="desk-solved">${solvedCount(d)} solved</span></div>
+        <h3>${D.name}</h3>
+        <div class="desk-beat">${D.beat}</div>
+        <p>${D.blurb}</p>
+        <button class="tool primary" data-act="open" data-case="${caseKey(d, nextNewCase(d))}">New case · No. ${nextNewCase(d)}</button>
+        ${open.length ? `<div class="desk-open">In progress: ${open.map((n) => `<button data-act="open" data-case="${caseKey(d, n)}">No. ${n}</button>`).join(' ')}</div>` : ''}
+      </article>`;
+  }).join('');
+  $('#app').innerHTML = `
+    ${patternDefsSvg()}
+    <div class="page home">
+      ${mastheadHtml(`<span>${total} ${total === 1 ? 'case' : 'cases'} closed</span><span class="difficulty">Front page</span>`)}
+      <main class="home-main">
+        <h2 class="headline">Pick your case, ${detective()}</h2>
+        <label class="detective-name">Your name on the byline
+          <input id="detective" type="text" maxlength="24" autocomplete="nickname" placeholder="e.g. Marple" value="${escapeHtml(store.detective)}">
+        </label>
+        ${resume}
+        <div class="desks">${desks}</div>
+        <p class="home-foot">Every case is generated for you and checked to have exactly one solution. Solved cases never come round again on this device. <button class="link" data-act="rules">How to play</button></p>
+      </main>
+    </div>`;
+  $('#detective').addEventListener('change', (ev) => {
+    store.detective = ev.target.value.trim();
+    saveStore();
+    renderHome();
+  });
+}
+
+function renderPage() {
+  const D = DESKS[P.desk];
+  $('#app').innerHTML = `
     ${patternDefsSvg()}
     <div class="page">
-      <header class="masthead">
-        <div class="mast-meta">
-          <span class="case-nav">
-            <button data-act="prev" aria-label="Previous case" ${P.seed <= 1 ? 'disabled' : ''}>◂</button>
-            <span>Case No. ${P.seed}</span>
-            <button data-act="next" aria-label="Next case">▸</button>
-          </span>
-          <span class="difficulty">${STARS[P.difficulty]}</span>
-        </div>
-        <h1 class="mast-title"><span class="the">The</span>Murdoku Gazette</h1>
-        <div class="mast-rule"></div>
-        <div class="mast-sub"><span>${today}</span><span>Price: one clue</span></div>
-      </header>
+      ${mastheadHtml(`
+        <button class="back" data-act="home" aria-label="All cases">◂ Cases</button>
+        <span>${D.name} · Case No. ${P.num}</span>
+        <span class="difficulty">${D.stars}</span>`)}
       <main class="layout">
         <section class="story">
           <h2 class="headline">${P.headline}</h2>
@@ -134,10 +225,11 @@ function renderPage() {
 function cardHtml(person, k) {
   const clues = person.isVictim
     ? '<b>The Victim.</b> Alone with the murderer.'
-    : person.clues.map((c) => clueText(P, person, c)).join(' ');
+    : person.clues.map((c) => clueText(P, person, c)).join(' ')
+      .replace(/data-who="(\d+)"/g, (_, j) => `style="color:${inkOf(Number(j))}"`);
   return `
-    <button class="card ${person.isVictim ? 'victim' : ''}" data-person="${k}" aria-label="${person.name}">
-      <div class="frame">${portraitSvg(person, { dead: person.isVictim })}</div>
+    <button class="card ${person.isVictim ? 'victim' : ''}" data-person="${k}" aria-label="${person.name}" style="--pc:${inkOf(k)};--pc-tint:${tintOf(k)}">
+      <div class="frame">${portraitSvg(person, { dead: person.isVictim, color: inkOf(k), tint: tintOf(k) })}</div>
       <div class="meta">
         <div class="name"><span class="init">${person.initial}</span>${person.name}</div>
         <div class="role">${person.title}</div>
@@ -199,7 +291,6 @@ function boardSvg() {
     if (r < n - 1 && P.cells[i].area !== P.cells[i + n].area) out.push(`<line class="wall" x1="${x}" y1="${y + CELL}" x2="${x + CELL}" y2="${y + CELL}"/>`);
   }
   out.push(`<rect class="outer" x="0" y="0" width="${W}" height="${W}"/>`);
-  out.push('<g id="dyn"></g><g id="press"></g>');
   // room name tags, bottom-right cell of each room
   P.areas.forEach((a, id) => {
     let best = -1;
@@ -211,6 +302,7 @@ function boardSvg() {
     const x = (best % n) * CELL + CELL - w - 3, y = Math.floor(best / n) * CELL + CELL - 24;
     out.push(`<g class="tag" pointer-events="none"><rect x="${x}" y="${y}" width="${w}" height="21" rx="10"/><text x="${x + w / 2}" y="${y + 15.5}" text-anchor="middle">${a.name}</text></g>`);
   });
+  out.push('<g id="dyn"></g><g id="press"></g>');
   out.push('</svg>');
   return out.join('');
 }
@@ -245,10 +337,12 @@ function renderDynamic() {
     if (sel != null) out.push(`<rect class="cell-hi" x="${(sel % n) * CELL}" y="${Math.floor(sel / n) * CELL}" width="${CELL}" height="${CELL}"/>`);
   }
   for (let i = 0; i < n * n; i++) {
-    if (occupied.has(i) || !isFree(P, i)) continue;
+    if (occupied.has(i)) continue;
     const auto = store.settings.autoX && (rows.has(Math.floor(i / n)) || cols.has(i % n));
-    if (S.marks.has(i)) out.push(cross(i, 'mark'));
-    else if (auto) out.push(cross(i, 'ghost', 22));
+    // one look for every excluded square: crossed by you, by a placed person's row/column,
+    // and blocked furniture squares in those rows/columns too
+    if (S.marks.has(i) || auto) out.push(cross(i, 'excluded'));
+    if (!isFree(P, i)) continue;
     // notes are kept but hidden while crossed out or once that person is placed
     const ks = [...(S.notes.get(i) || [])].filter((k) => S.placed[k] == null);
     if (ks.length && !auto && !S.marks.has(i)) out.push(notesSvg(i, ks));
@@ -269,7 +363,9 @@ function renderDynamic() {
     if (k === S.flagged) cls.push('flagged');
     if (k === S.fresh) cls.push('fresh');
     if (S.solved && k === P.murderer) cls.push('killer');
-    out.push(`<g class="${cls.join(' ')}"><g transform="translate(${cx} ${cy})"><circle class="ring" r="32"/><circle class="inner" r="26"/><text y="2">${person.initial}</text></g></g>`);
+    const ink = inkOf(k);
+    const style = S.solved && k === P.murderer ? `--pc:${ink};--pc-tint:${ink}` : `--pc:${ink};--pc-tint:${tintOf(k)}`;
+    out.push(`<g class="${cls.join(' ')}" style="${style}"><g transform="translate(${cx} ${cy})"><circle class="ring" r="32"/><circle class="inner" r="26"/><text y="2">${person.initial}</text></g></g>`);
   }
   dyn.innerHTML = out.join('');
   S.fresh = null;
@@ -330,8 +426,7 @@ function notesSvg(i, ks) {
   const ys = rowsN === 1 ? [22] : rowsN === 2 ? [21, 81] : [21, 51, 81];
   return ks.sort((a, b) => a - b).map((k) => {
     const x = x0 + 22 + (k % 3) * 28, y = y0 + ys[Math.floor(k / 3)];
-    const cls = P.people[k].isVictim ? 'note victim' : 'note';
-    return `<text class="${cls}" x="${x}" y="${y}">${P.people[k].initial}</text>`;
+    return `<text class="note" x="${x}" y="${y}" style="fill:${inkOf(k)}">${P.people[k].initial}</text>`;
   }).join('');
 }
 
@@ -595,7 +690,7 @@ function restart() {
     <div class="kicker">Start over?</div>
     <h2>Restart the case</h2>
     <div class="rule"></div>
-    <p>Clear every suspect and mark from the scene of Case No. ${P.seed}.</p>
+    <p>Clear every suspect, note and cross from ${DESKS[P.desk].name} Case No. ${P.num}.</p>
     <div class="actions">
       <button class="tool" data-act="close">Keep going</button>
       <button class="tool primary" data-act="do-restart">Restart</button>
@@ -603,10 +698,10 @@ function restart() {
 }
 
 function doRestart() {
-  delete store.progress[P.seed];
+  delete store.progress[P.key];
   S = null; // otherwise openCase would save the current board straight back
   closeModal();
-  openCase(P.seed);
+  openCase(P.desk, P.num);
   toast('Case restarted. Fresh start, detective.', false);
 }
 
@@ -639,10 +734,11 @@ function showSolved() {
     <div class="rule"></div>
     <div class="mugshot">${portraitSvg(killer)}</div>
     <div class="caption">${killer.name}, ${killer.title}, photographed leaving the ${room}.</div>
-    <p>${killer.name} was alone with ${victim.name} in the <b>${room}</b>. The Gazette's detective has cracked Case No. ${P.seed}.</p>
+    <p>${killer.name} was alone with ${victim.name} in the <b>${room}</b>. ${store.detective ? detective() : "The Gazette's detective"} has cracked ${DESKS[P.desk].name} Case No. ${P.num}.</p>
     <div class="stats"><span>Time ${fmtTime(S.elapsed)}</span><span>Hints ${S.hints}</span></div>
     <div class="actions">
       <button class="tool" data-act="close">View scene</button>
+      <button class="tool" data-act="home">All cases</button>
       <button class="tool primary" data-act="next">Next case ▸</button>
     </div>`, 'extra');
 }
@@ -672,12 +768,12 @@ function showRules() {
   $('#opt-autox').addEventListener('change', (ev) => {
     store.settings.autoX = ev.target.checked;
     saveStore();
-    renderDynamic();
+    if (P) renderDynamic();
   });
   $('#opt-highlight').addEventListener('change', (ev) => {
     store.settings.highlight = ev.target.checked;
     saveStore();
-    renderDynamic();
+    if (P) renderDynamic();
   });
 }
 
@@ -688,8 +784,9 @@ document.addEventListener('click', (ev) => {
   if (act) {
     ({
       undo, hint, restart, cross: toggleCross, rules: showRules, close: closeModal, 'do-restart': doRestart,
-      next: () => { closeModal(); openCase(P.seed + 1); },
-      prev: () => { closeModal(); openCase(P.seed - 1); },
+      next: () => { closeModal(); const d = P.desk; saveStore(); openCase(d, nextNewCase(d)); },
+      home: showHome,
+      open: () => { closeModal(); const c = parseKey(ev.target.closest('[data-case]')?.dataset.case); if (c) openCase(...c); },
     })[act]?.();
     return;
   }
@@ -719,12 +816,14 @@ document.addEventListener('visibilitychange', () => {
 });
 
 window.addEventListener('hashchange', () => {
-  const lvl = parseInt(location.hash.slice(1), 10);
-  if (lvl && lvl !== P?.seed) openCase(lvl);
+  const c = parseKey(location.hash.slice(1));
+  if (c && caseKey(...c) !== P?.key) openCase(...c);
+  else if (!c && P) showHome();
 });
 
-const fromHash = parseInt(location.hash.slice(1), 10);
-openCase(fromHash || store.level);
+const fromHash = parseKey(location.hash.slice(1));
+if (fromHash) openCase(...fromHash);
+else renderHome();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

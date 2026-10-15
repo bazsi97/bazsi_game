@@ -27,12 +27,13 @@ const N = Number(process.argv[2] || 60);
 const t0 = Date.now();
 const stats = { easy: [], medium: [], hard: [] };
 const typeCount = {};
+let fallbacks = 0;
 for (const difficulty of ['easy', 'medium', 'hard']) {
   for (let seed = 1; seed <= N; seed++) {
     const s = Date.now();
     let p;
     try {
-      p = generatePuzzle({ seed, n: 6, difficulty });
+      p = generatePuzzle({ seed, difficulty });
     } catch (e) {
       fail(`${difficulty} seed ${seed}: ${e.message}`);
       continue;
@@ -46,7 +47,9 @@ for (const difficulty of ['easy', 'medium', 'hard']) {
     if (!sol.every((i) => isFree(p, i))) fail(`${tag} blocked cell`);
     if (!aloneOk(p, sol)) fail(`${tag} alone rule`);
     p.people.forEach((pr, k) => pr.clues.forEach((c) => { if (!clueHolds(p, k, c, sol)) fail(`${tag} false clue ${JSON.stringify(c)}`); }));
-    for (const pr of p.people) for (const c of pr.clues) typeCount[c.type] = (typeCount[c.type] || 0) + 1;
+    for (const pr of p.people) for (const c of pr.clues) { const key = `${difficulty}:${c.type === 'rel' ? 'rel-' + c.rel : c.type}`; typeCount[key] = (typeCount[key] || 0) + 1; }
+    if (p.difficulty !== difficulty) fail(`${tag} difficulty label`);
+    if (p.fellBack) fallbacks++;
     const vArea = p.cells[sol[p.victim]].area;
     if (p.cells[sol[p.murderer]].area !== vArea) fail(`${tag} murderer`);
     const r = logicalSolve(p);
@@ -57,8 +60,8 @@ const avg = (a) => (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1);
 const max = (a) => Math.max(...a);
 for (const d of Object.keys(stats)) console.log(`${d}: avg ${avg(stats[d])}ms, max ${max(stats[d])}ms`);
 
-console.log('clue types used:', JSON.stringify(typeCount));
-const p = generatePuzzle({ seed: 1, n: 6, difficulty: 'medium' });
+for (const d of ['easy', 'medium', 'hard']) console.log(d, 'rel clues:', Object.entries(typeCount).filter(([k]) => k.startsWith(d + ':rel')).map(([k, v]) => k.split(':')[1] + '=' + v).join(' ') || 'none');
+const p = generatePuzzle({ seed: 1, difficulty: 'medium' });
 console.log(`\nCase 1 (${p.attempts} layouts): ${p.headline}\n${ascii(p)}`);
 p.people.forEach((pr) => console.log(`  ${pr.name} ${pr.title}${pr.isVictim ? ' (VICTIM)' : ''}: ${pr.clues.map((c) => clueText(p, pr, c)).join(' ')}`));
 console.log('  murderer:', p.people[p.murderer].name, 'rating', JSON.stringify(p.rating));
