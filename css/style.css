@@ -183,7 +183,15 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   font-family: var(--type); font-size: 0.62rem; letter-spacing: 0.1em; border: 2px solid var(--ink);
   padding: 0 4px; background: var(--paper); z-index: 2;
 }
-.card.placed .frame { opacity: 0.7; }
+/* placed suspects are struck off the list: greyed, crossed through, still tappable to move */
+.card.placed { opacity: 0.5; filter: grayscale(0.7); box-shadow: 1px 1px 0 var(--ink); }
+.card.placed .name, .card.placed .clue { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--ink); }
+.card.placed::before {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(to top right, transparent calc(50% - 2.5px), var(--ink) calc(50% - 2.5px), var(--ink) calc(50% + 2.5px), transparent calc(50% + 2.5px));
+}
+.card.placed.selected { opacity: 1; filter: none; }
+.card.placed.selected::before { opacity: 0.25; }
 .card.flagged { animation: shake 0.4s; border-color: var(--red); }
 .card.ref { outline: 3px dashed var(--red); outline-offset: 3px; }
 .card.hinted { border-color: var(--red); box-shadow: 3px 3px 0 var(--red); }

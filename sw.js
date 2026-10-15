@@ -1,5 +1,5 @@
 // Offline support: cache the whole (tiny) app; serve cache-first, refresh in the background.
-const CACHE = 'murdoku-v5';
+const CACHE = 'murdoku-v6';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/app.js', 'js/art.js', 'js/clues.js', 'js/generator.js', 'js/rng.js', 'js/solver.js', 'js/themes.js',
