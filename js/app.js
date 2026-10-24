@@ -5,6 +5,7 @@ import { clueText, isFree } from './clues.js';
 import { OBJECTS } from './themes.js';
 import { objectSvg, portraitSvg, patternDefsSvg } from './art.js';
 import { explainNext } from './hints.js';
+import { play, unlock, setSoundEnabled } from './sound.js';
 
 const STORE_KEY = 'murdoku:v2';
 const CELL = 100;
@@ -14,6 +15,7 @@ const CAP_OFFSET = (fontSize) => +(fontSize * 0.708 / 2).toFixed(1);
 const $ = (sel, el = document) => el.querySelector(sel);
 
 const store = loadStore();
+setSoundEnabled(store.settings.sound);
 let P = null; // current puzzle
 let S = null; // play state
 let toastTimer = null;
@@ -27,6 +29,7 @@ function loadStore() {
   s.settings ||= {};
   s.settings.autoX ??= true;
   s.settings.highlight ??= true;
+  s.settings.sound ??= true;
   return s;
 }
 function saveStore() {
@@ -521,7 +524,7 @@ function onPointerMove(ev) {
     paint(g.start, g.mode);
   }
   g.last = i;
-  paint(i, g.mode);
+  if (paint(i, g.mode)) play(PAINT_SOUND[g.mode]);
   renderDynamic();
 }
 
@@ -542,8 +545,11 @@ function paintModeFor(i) {
   return S.notes.get(i)?.has(S.selected) ? 'unnote' : 'note';
 }
 
+const PAINT_SOUND = { x: 'cross', unx: 'uncross', note: 'note', unnote: 'erase' };
+
+// returns true when the square could be painted
 function paint(i, mode) {
-  if (!isFree(P, i) || S.placed.includes(i)) return;
+  if (!isFree(P, i) || S.placed.includes(i)) return false;
   if (mode === 'x') S.marks.add(i);
   else if (mode === 'unx') S.marks.delete(i);
   else {
@@ -552,6 +558,7 @@ function paint(i, mode) {
     else ks.delete(S.selected);
     S.notes.set(i, ks);
   }
+  return true;
 }
 
 function showPress(i) {
@@ -571,12 +578,16 @@ function tapCell(i) {
     // tapping a placed letter selects that person (tap again to let go)
     S.crossMode = false;
     S.selected = S.selected === occupant ? null : occupant;
+    play('select');
     renderDynamic();
     setStatus(defaultStatus());
     return;
   }
   if (!isFree(P, i)) {
-    if (S.selected != null) toast(`Nobody can stand on the ${OBJECTS[P.cells[i].obj].name}.`);
+    if (S.selected != null) {
+      play('bump');
+      toast(`Nobody can stand on the ${OBJECTS[P.cells[i].obj].name}.`);
+    }
     return;
   }
   if (!S.crossMode && S.selected == null) {
@@ -584,7 +595,9 @@ function tapCell(i) {
     return;
   }
   snapshot();
-  paint(i, paintModeFor(i));
+  const mode = paintModeFor(i);
+  paint(i, mode);
+  play(PAINT_SOUND[mode]);
   afterChange();
 }
 
@@ -596,6 +609,7 @@ function holdCell(i) {
   snapshot();
   if (occupant === k) {
     S.placed[k] = null;
+    play('remove');
     toast(`${P.people[k].name} taken off the board.`, false);
   } else {
     if (occupant >= 0) S.placed[occupant] = null;
@@ -604,6 +618,7 @@ function holdCell(i) {
     S.fresh = k;
     if (S.hintFocus === k) S.hintFocus = null;
     S.selected = null;
+    play('place');
   }
   afterChange();
 }
@@ -612,6 +627,7 @@ function toggleCross() {
   if (S.solved) return;
   S.crossMode = !S.crossMode;
   if (S.crossMode) S.selected = null;
+  play('select');
   renderDynamic();
   setStatus(defaultStatus());
 }
@@ -621,6 +637,7 @@ function tapCard(k) {
   S.selected = S.selected === k ? null : k;
   S.crossMode = false;
   S.flagged = null;
+  play('select');
   renderDynamic();
   setStatus(defaultStatus());
 }
@@ -639,7 +656,10 @@ function afterChange() {
     return;
   }
   renderDynamic();
-  if (full) toast('Everyone is placed… but the facts don\'t add up.');
+  if (full) {
+    play('wrong');
+    toast('Everyone is placed… but the facts don\'t add up.');
+  }
   else setStatus(defaultStatus());
   saveStore();
 }
@@ -647,6 +667,7 @@ function afterChange() {
 function undo() {
   const prev = S.history.pop();
   if (!prev) return;
+  play('undo');
   S.placed = prev.placed;
   S.marks = new Set(prev.marks);
   S.notes = notesFromJson(prev.notes);
@@ -665,6 +686,7 @@ function hint() {
     S.hints++;
     S.flagged = wrong;
     S.selected = null;
+    play('wrong');
     renderDynamic();
     toast(`${P.people[wrong].name}'s position doesn't hold up.`);
     saveStore();
@@ -681,6 +703,7 @@ function hint() {
     S.hintStage = 1;
     S.hintMarks = null;
     hideHintSlip();
+    play('hint');
     renderDynamic();
     toast(`Look closely at ${name}. Tap Hint again for a clue.`, false);
   } else if (S.hintStage === 1) {
@@ -688,6 +711,7 @@ function hint() {
     S.selected = next;
     S.crossMode = false;
     S.hintMarks = h?.marks?.size ? h.marks : null;
+    play('hint');
     renderDynamic();
     showHintSlip(name, h ? h.steps : [`Think about which of ${name}'s squares are still free.`]);
     $('#board')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -702,6 +726,7 @@ function hint() {
     S.fresh = next;
     S.selected = null;
     clearHint();
+    play('place');
     toast(`An informant places ${name}.`, false);
     afterChange();
     return;
@@ -743,6 +768,7 @@ function doRestart() {
   delete store.progress[P.key];
   S = null; // otherwise openCase would save the current board straight back
   closeModal();
+  play('restart');
   openCase(P.desk, P.num);
   toast('Case restarted. Fresh start, detective.', false);
 }
@@ -767,6 +793,7 @@ function fmtTime(ms) {
 }
 
 function showSolved() {
+  play('solved');
   const killer = P.people[P.murderer];
   const victim = P.people[P.victim];
   const room = P.areas[P.cells[P.solution[P.victim]].area].name;
@@ -805,12 +832,19 @@ function showRules() {
     <p><b>Controls.</b> Tap a statement to pick that person. Then <b>tap</b> a square to pencil in their initial, or <b>swipe</b> across squares to note several at once. <b>Hold</b> a square to place them for good: their row and column get crossed out. Hold their letter to take them back off. Use <b>Cross</b> to tap or swipe ✕ onto squares yourself.</p>
     <div class="mini-legend">${legend}</div>
     <label class="setting"><input type="checkbox" id="opt-autox" ${store.settings.autoX ? 'checked' : ''}> Cross out the row and column of everyone placed</label>
+    <label class="setting"><input type="checkbox" id="opt-sound" ${store.settings.sound ? 'checked' : ''}> Sound effects</label>
     <label class="setting"><input type="checkbox" id="opt-highlight" ${store.settings.highlight ? 'checked' : ''}> Highlight what a selected statement mentions</label>
     <div class="actions"><button class="tool primary" data-act="close">Back to the case</button></div>`);
   $('#opt-autox').addEventListener('change', (ev) => {
     store.settings.autoX = ev.target.checked;
     saveStore();
     if (P) renderDynamic();
+  });
+  $('#opt-sound').addEventListener('change', (ev) => {
+    store.settings.sound = ev.target.checked;
+    setSoundEnabled(store.settings.sound);
+    saveStore();
+    play('select');
   });
   $('#opt-highlight').addEventListener('change', (ev) => {
     store.settings.highlight = ev.target.checked;
@@ -838,6 +872,7 @@ document.addEventListener('click', (ev) => {
 
 // board gestures (delegated: the board element is re-rendered per case)
 document.addEventListener('pointerdown', (ev) => {
+  unlock();
   const board = ev.target.closest?.('#board');
   if (board) onPointerDown(ev, board);
 });

@@ -89,3 +89,19 @@ variants slot in as **new constraints and new clue types**:
 - ~~Relational clues~~ **done:** one row north/south, one column east/west, somewhere north/south/east/west, diagonally next to, the only one in a room or on a kind of seat, same row/column as an object, edge rows/columns.
   squares north of Mabel", "Nobody else was in the Kitchen", "She was not in the Garden".
 - **Multi-cell furniture** (2-cell beds, long tables) for more book-like rooms.
+
+## 6. Theme plan (agreed, not built yet)
+
+A theme selector sits above the difficulty picker; each theme has its own Easy/Medium/Hard
+series (case IDs like `zeta-medium-3`, so existing saves are untouched), a host character for
+its chapter intro, a hand-made tutorial case, and one rule twist.
+
+| Theme | Twist |
+|---|---|
+| Outpost Zeta-9 (aliens) | All suspects are aliens. A toggle above the board switches between their alien names (alien-looking gibberish) and their boring human aliases (Jeff, Dave…). Twist rule to be chosen (see chat). |
+| Hollow Hill House | The ghost may stand inside furniture nobody else can occupy. |
+| The Midnight Heist | Wall cameras see along their row until furniture blocks them. |
+| Egypt (pyramids, mummies, gods) | Twist to be chosen. |
+
+Visual direction: A (tabloid) or B (pinboard), parked for now. Sound effects are synthesised
+with Web Audio in `js/sound.js` (no audio files).
