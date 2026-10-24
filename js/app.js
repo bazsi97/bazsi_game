@@ -4,6 +4,7 @@ import { generatePuzzle, DIFFICULTY } from './generator.js';
 import { clueText, isFree } from './clues.js';
 import { OBJECTS } from './themes.js';
 import { objectSvg, portraitSvg, patternDefsSvg } from './art.js';
+import { explainNext } from './hints.js';
 
 const STORE_KEY = 'murdoku:v2';
 const CELL = 100;
@@ -106,6 +107,8 @@ function openCase(d, n) {
     fresh: null,
     flagged: null,
     hintFocus: null,
+    hintStage: 0,
+    hintMarks: null,
   };
   setHash(`#${P.key}`);
   renderPage();
@@ -212,6 +215,7 @@ function renderPage() {
       </main>
     </div>
     <nav class="toolbar">
+      <div class="hint-slip" role="note" hidden></div>
       <div class="status" role="status" aria-live="polite"></div>
       <div class="tools">
         <button class="tool" data-act="undo">${ICONS.undo}Undo</button>
@@ -335,6 +339,7 @@ function renderDynamic() {
   for (const m of [rows, cols]) for (const ks of m.values()) if (ks.length > 1) ks.forEach((k) => conflicts.add(k));
 
   if (S.selected != null && store.settings.highlight) out.push(...clueHighlights(S.selected));
+  if (S.hintMarks) for (const i of S.hintMarks) out.push(`<rect class="hint-hi" x="${(i % n) * CELL}" y="${Math.floor(i / n) * CELL}" width="${CELL}" height="${CELL}"/>`);
   if (S.selected != null) {
     const sel = S.placed[S.selected];
     if (sel != null) out.push(`<rect class="cell-hi" x="${(sel % n) * CELL}" y="${Math.floor(sel / n) * CELL}" width="${CELL}" height="${CELL}"/>`);
@@ -621,6 +626,7 @@ function tapCard(k) {
 }
 
 function afterChange() {
+  if (S.hintFocus != null && S.placed[S.hintFocus] != null) clearHint();
   const full = S.placed.every((x) => x != null);
   if (full && S.placed.every((x, k) => x === P.solution[k])) {
     saveStore(); // bank the elapsed time first
@@ -664,14 +670,28 @@ function hint() {
     saveStore();
     return;
   }
-  // 2) nudge toward the next deduction, 3) then reveal it
-  const next = P.deduction.find((k) => S.placed[k] == null);
+  // then, for the next person logic can pin down: 1) name them, 2) explain why, 3) place them
+  const h = explainNext(P, S.placed);
+  const next = h ? h.target : P.deduction.find((k) => S.placed[k] == null);
   if (next == null) return;
+  const name = P.people[next].name;
   S.hints++;
-  if (S.hintFocus !== next) {
+  if (S.hintFocus !== next || !S.hintStage) {
     S.hintFocus = next;
+    S.hintStage = 1;
+    S.hintMarks = null;
+    hideHintSlip();
     renderDynamic();
-    toast(`Look closely at ${P.people[next].name}. Hint again to reveal.`, false);
+    toast(`Look closely at ${name}. Tap Hint again for a clue.`, false);
+  } else if (S.hintStage === 1) {
+    S.hintStage = 2;
+    S.selected = next;
+    S.crossMode = false;
+    S.hintMarks = h?.marks?.size ? h.marks : null;
+    renderDynamic();
+    showHintSlip(name, h ? h.steps : [`Think about which of ${name}'s squares are still free.`]);
+    $('#board')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    setStatus(`Tap Hint once more to place ${name}.`);
   } else {
     snapshot();
     const cell = P.solution[next];
@@ -680,12 +700,31 @@ function hint() {
     S.placed[next] = cell;
     S.marks.delete(cell);
     S.fresh = next;
-    S.hintFocus = null;
-    toast(`An informant places ${P.people[next].name}.`, false);
+    S.selected = null;
+    clearHint();
+    toast(`An informant places ${name}.`, false);
     afterChange();
     return;
   }
   saveStore();
+}
+
+function showHintSlip(name, steps) {
+  const el = $('.hint-slip');
+  if (!el) return;
+  el.innerHTML = `<div class="hint-kicker">Informant's note on ${escapeHtml(name)}</div>
+    <ol>${steps.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ol><button class="hint-close" data-act="close-hint" aria-label="Close hint">✕</button>`;
+  el.hidden = false;
+}
+function hideHintSlip() {
+  const el = $('.hint-slip');
+  if (el) el.hidden = true;
+}
+function clearHint() {
+  S.hintFocus = null;
+  S.hintStage = 0;
+  S.hintMarks = null;
+  hideHintSlip();
 }
 
 function restart() {
@@ -786,7 +825,7 @@ document.addEventListener('click', (ev) => {
   const act = ev.target.closest('[data-act]')?.dataset.act;
   if (act) {
     ({
-      undo, hint, restart, cross: toggleCross, rules: showRules, close: closeModal, 'do-restart': doRestart,
+      undo, hint, restart, cross: toggleCross, 'close-hint': () => { hideHintSlip(); S.hintMarks = null; renderDynamic(); }, rules: showRules, close: closeModal, 'do-restart': doRestart,
       next: () => { closeModal(); const d = P.desk; saveStore(); openCase(d, nextNewCase(d)); },
       home: showHome,
       open: () => { closeModal(); const c = parseKey(ev.target.closest('[data-case]')?.dataset.case); if (c) openCase(...c); },

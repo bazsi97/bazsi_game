@@ -61,12 +61,16 @@ export function countSolutions(p, limit = 2) {
 }
 
 // Technique levels: 1 = easy, 2 = medium, 3 = needs trial and error.
-export function logicalSolve(p) {
+// Options (used by hints only; generation calls it bare):
+//   fixed: [cell|null per person]  people already correctly on the board
+//   log:   []                       receives { place } and { k, cells, why } events in order
+export function logicalSolve(p, { fixed = null, log = null } = {}) {
   const n = p.n;
   const P = p.people.length;
   const vi = victimIndex(p);
-  const cand = p.people.map((_, k) => new Set(domainFor(p, k)));
+  const cand = p.people.map((_, k) => new Set(fixed?.[k] != null ? [fixed[k]] : domainFor(p, k)));
   const rels = relationsOf(p);
+  let why = null; // reason attached to removals while logging
   const placed = new Array(P).fill(false);
   const order = [];
   const used = {};
@@ -80,7 +84,9 @@ export function logicalSolve(p) {
   };
   const removeWhere = (k, pred) => {
     let ch = false;
-    for (const i of [...cand[k]]) if (pred(i)) { cand[k].delete(i); ch = true; }
+    const gone = [];
+    for (const i of [...cand[k]]) if (pred(i)) { cand[k].delete(i); gone.push(i); ch = true; }
+    if (log && gone.length) log.push({ k, cells: gone, why });
     return ch;
   };
 
@@ -93,6 +99,8 @@ export function logicalSolve(p) {
       const i = [...cand[k]][0];
       placed[k] = true;
       order.push({ person: k, cell: i });
+      if (log) log.push({ place: k, cell: i });
+      why = { tech: 'single', who: k, cell: i };
       for (let j = 0; j < P; j++) {
         if (j !== k) removeWhere(j, (x) => lines.some((L) => L(x) === L(i)));
       }
@@ -108,6 +116,7 @@ export function logicalSolve(p) {
       for (let v = 0; v < n; v++) {
         const holders = [];
         for (let k = 0; k < P; k++) if ([...cand[k]].some((x) => L(x) === v)) holders.push(k);
+        why = { tech: 'line', axis: L === lines[0] ? 'row' : 'col', v, who: holders[0] };
         if (holders.length === 1 && removeWhere(holders[0], (x) => L(x) !== v)) {
           bump(1, 'line');
           return true;
@@ -126,6 +135,7 @@ export function logicalSolve(p) {
         if (ls.size !== 1) continue;
         const v = [...ls][0];
         let ch = false;
+        why = { tech: 'pointing', axis: L === lines[0] ? 'row' : 'col', v, who: k };
         for (let j = 0; j < P; j++) if (j !== k) ch = removeWhere(j, (x) => L(x) === v) || ch;
         if (ch) { bump(1, 'pointing'); return true; }
       }
@@ -142,14 +152,17 @@ export function logicalSolve(p) {
     for (let a = 0; a < p.areas.length; a++) {
       const definite = suspects.filter((k) => mustBeIn(k, a)).length;
       const possible = suspects.filter((k) => canBeIn(k, a)).length;
+      why = { tech: 'alone', kind: definite >= 2 ? 'crowded' : 'empty', area: a };
       if (definite >= 2 || possible === 0) ch = removeWhere(vi, (x) => A(x) === a) || ch;
     }
     const vAreas = new Set([...cand[vi]].map(A));
     if (vAreas.size === 1) {
       const a = [...vAreas][0];
       const possibles = suspects.filter((k) => canBeIn(k, a));
+      why = { tech: 'alone', kind: 'forced', area: a };
       if (possibles.length === 1) ch = removeWhere(possibles[0], (x) => A(x) !== a) || ch;
       const defs = suspects.filter((k) => mustBeIn(k, a));
+      why = { tech: 'alone', kind: 'taken', area: a, who: defs[0] };
       if (defs.length === 1) {
         for (const k of suspects) if (k !== defs[0]) ch = removeWhere(k, (x) => A(x) === a) || ch;
       }
@@ -168,6 +181,7 @@ export function logicalSolve(p) {
           for (const k of combo) for (const x of cand[k]) ls.add(L(x));
           if (ls.size !== size) continue;
           let ch = false;
+          why = { tech: 'subset', axis: L === lines[0] ? 'row' : 'col', who: combo, lines: [...ls].sort((a, b) => a - b) };
           for (let j = 0; j < P; j++) {
             if (!combo.includes(j)) ch = removeWhere(j, (x) => ls.has(L(x))) || ch;
           }
@@ -184,6 +198,7 @@ export function logicalSolve(p) {
     for (const { k, who, clue } of rels) {
       const easy = placed[k] || placed[who];
       const compatible = (x, y) => x !== y && lines.every((L) => L(x) !== L(y)) && CLUES.rel.rel(p, clue, x, y);
+      why = { tech: 'relation', owner: k, other: who, clue };
       let ch = removeWhere(k, (x) => ![...cand[who]].some((y) => compatible(x, y)));
       ch = removeWhere(who, (y) => ![...cand[k]].some((x) => compatible(x, y))) || ch;
       if (ch) { bump(easy ? 1 : 2, 'relation'); return true; }

@@ -16,7 +16,8 @@ Add it to your home screen (Safari: Share → Add to Home Screen) to play offlin
 ## Test
 
 ```sh
-npm test            # generates 3×60 cases and verifies each is unique and logically solvable
+npm test            # checks existing cases are unchanged (protects saved progress),
+                    # then generates 3×60 cases and verifies each is unique and logically solvable
 ```
 
 ## Hosting (GitHub Pages)
