@@ -90,18 +90,25 @@ variants slot in as **new constraints and new clue types**:
   squares north of Mabel", "Nobody else was in the Kitchen", "She was not in the Garden".
 - **Multi-cell furniture** (2-cell beds, long tables) for more book-like rooms.
 
-## 6. Theme plan (agreed, not built yet)
+## 6. Themes
 
-A theme selector sits above the difficulty picker; each theme has its own Easy/Medium/Hard
-series (case IDs like `zeta-medium-3`, so existing saves are untouched), a host character for
-its chapter intro, a hand-made tutorial case, and one rule twist.
+A theme selector ("editions") sits above the difficulty picker; each theme has its own
+Easy/Medium/Hard series. Manor keys stay `medium-3` (saves predate themes); others are
+`zeta-medium-3`. The Manor generator path and seed strings are untouched, which the fingerprint
+test enforces. Each theme has a host's chapter intro on first visit.
 
-| Theme | Twist |
-|---|---|
-| Outpost Zeta-9 (aliens) | All suspects are aliens. A toggle above the board switches between their alien names (alien-looking gibberish) and their boring human aliases (Jeff, Dave…). Twist rule to be chosen (see chat). |
-| Hollow Hill House | The ghost may stand inside furniture nobody else can occupy. |
-| The Midnight Heist | Wall cameras see along their row until furniture blocks them. |
-| Egypt (pyramids, mummies, gods) | Twist to be chosen. |
+| Theme | Easy | Medium | Hard | Status |
+|---|---|---|---|---|
+| The Manor | classic | + one exact relation | + several | live |
+| Outpost Zeta-9 | telepathy (statements describe someone else) | + teleporter pads | + human impostor whose statement is false | live |
+| Hollow Hill House | ghost may stand inside furniture | same | same | live |
+| Egypt | masks of the gods (hidden identities) | pyramid-shaped board | both | next |
+| The Midnight Heist | cameras see along their row until blocked | same | same | next |
 
-Visual direction: A (tabloid) or B (pinboard), parked for now. Sound effects are synthesised
-with Web Audio in `js/sound.js` (no audio files).
+Engine hooks: `clue.about` (telepathy), `clue.neg` + `withLiar()` (impostor: answer unique across
+every choice of liar, and every wrong choice must collapse under plain logic), `person.ghost` +
+`canStand()`, `cell.pad` (teleporters extend "beside"). Zeta-9 people carry `alienName` and
+`earthName`; the switch above the board swaps them everywhere.
+
+Visual direction: A (tabloid) or B (pinboard), parked. Sound effects are synthesised with Web Audio
+in `js/sound.js` (no audio files).

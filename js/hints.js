@@ -3,7 +3,7 @@
 // and explain in plain words what rules out their other squares (without naming the square).
 
 import { logicalSolve, victimIndex } from './solver.js';
-import { domainFor, RELATIONS, CLUES, isFree } from './clues.js';
+import { domainFor, RELATIONS, CLUES, canStand, cluesAbout, ownHolds } from './clues.js';
 import { OBJECTS } from './themes.js';
 
 const ORD = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th'];
@@ -23,20 +23,27 @@ const lineCells = (p, axis, v) => [...Array(p.n).keys()].map((t) => (axis === 'r
 function startText(p, t, size) {
   const person = p.people[t];
   if (person.isVictim) return `The victim can be on any free square to begin with, ${size} of them.`;
-  const kinds = person.clues.map((c) => {
-    if (c.type === 'on' || c.type === 'onlyOn') return plurals(OBJECTS[c.obj].name);
-    if (c.type === 'beside') return `squares beside a ${OBJECTS[c.obj].name}`;
-    if (c.type === 'in' || c.type === 'onlyIn') return `squares in the ${p.areas[c.area].name}`;
-    if (c.type === 'rowHas' || c.type === 'colHas') return `squares in line with a ${OBJECTS[c.obj].name}`;
-    if (c.type === 'edge') return `squares along that edge`;
-    return null;
+  const about = cluesAbout(p, t);
+  const kinds = about.map((c) => {
+    const k = kindOf(p, c);
+    return k && c.neg ? `not ${k}` : k;
   }).filter(Boolean);
   if (!kinds.length) {
-    const rel = person.clues.find((c) => c.type === 'rel');
-    if (rel) return `${person.name} was ${RELATIONS[rel.rel].text.replace(/<\/?b>/g, '')} ${p.people[rel.who].name}.`;
-    return `Start from ${person.name}'s statement.`;
+    const rel = about.find((c) => c.type === 'rel');
+    if (rel) return `${person.name} was ${rel.neg ? 'not ' : ''}${RELATIONS[rel.rel].text.replace(/<\/?b>/g, '')} ${p.people[rel.who].name}.`;
+    return `Start from what was said about ${person.name}.`;
   }
-  return `${person.name}'s statement allows ${size} ${plural(size, 'square', 'squares')} (${kinds.join(', ')}).`;
+  const said = about.some((c) => c.about != null) ? 'What was sensed about' : 'The statement about';
+  return `${said} ${person.name} allows ${size} ${plural(size, 'square', 'squares')} (${kinds.join(', ')}).`;
+}
+
+function kindOf(p, c) {
+  if (c.type === 'on' || c.type === 'onlyOn') return plurals(OBJECTS[c.obj].name);
+  if (c.type === 'beside') return `squares beside a ${OBJECTS[c.obj].name}`;
+  if (c.type === 'in' || c.type === 'onlyIn') return `squares in the ${p.areas[c.area].name}`;
+  if (c.type === 'rowHas' || c.type === 'colHas') return `squares in line with a ${OBJECTS[c.obj].name}`;
+  if (c.type === 'edge') return `squares along that edge`;
+  return null;
 }
 
 export function explainNext(p, placed) {
@@ -57,7 +64,7 @@ export function explainNext(p, placed) {
   // Others' "only one" statements already shape the starting squares.
   const ownOnly = [];
   for (let i = 0; i < p.n * p.n; i++) {
-    if (isFree(p, i) && p.people[t].clues.every((c) => !CLUES[c.type].own || CLUES[c.type].own(p, c, i))) ownOnly.push(i);
+    if (canStand(p, t, i) && cluesAbout(p, t).every((c) => !CLUES[c.type].own || ownHolds(p, c, i))) ownOnly.push(i);
   }
   lines.push(startText(p, t, ownOnly.length));
   if (ownOnly.length > start.length) {
@@ -88,12 +95,12 @@ export function explainNext(p, placed) {
       case 'subset': {
         const names = why.who.map((k) => nameOf(p, k));
         const ls = why.lines.map((v) => lineName(p, why.axis, v).replace(/^the /, ''));
-        lines.push(`Between them, ${list(names)} can only use ${list(ls)}, so those ${why.axis}s are taken.`);
+        lines.push(`Between them, ${list(names)} can only use ${list(ls)}, so those ${why.axis === 'row' ? 'rows' : 'columns'} are taken.`);
         why.lines.forEach((v) => lineCells(p, why.axis, v).forEach((i) => marks.add(i)));
         break;
       }
       case 'relation': {
-        const rel = RELATIONS[why.clue.rel].text.replace(/<\/?b>/g, '');
+        const rel = (why.clue.neg ? 'not ' : '') + RELATIONS[why.clue.rel].text.replace(/<\/?b>/g, '');
         const owner = p.people[why.owner].name;
         const other = p.people[why.other].name;
         lines.push(why.owner === t

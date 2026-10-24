@@ -1,1 +1,1 @@
-{"type":"module","private":true,"name":"murdoku","scripts":{"test":"node tests/fingerprint.mjs && node tests/run.mjs"}}
+{"type":"module","private":true,"name":"murdoku","scripts":{"test":"node tests/fingerprint.mjs && node tests/run.mjs && node tests/themes.mjs 15"}}

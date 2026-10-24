@@ -138,7 +138,118 @@ const OBJ = {
     <rect class="sh" x="30" y="50" width="40" height="18"/>
     <path class="s" d="M36 74 H64"/>
     <path class="s" d="M20 90 v4 M80 90 v4"/>`,
+
+  // ----- Outpost Zeta-9 -----
+  hoverchair: `
+    <path class="f" d="M28 30 C28 14 72 14 72 30 L72 54 L28 54 Z"/>
+    <path class="f" d="M18 42 C18 33 31 33 31 42 L31 64 L18 64 Z"/>
+    <path class="f" d="M69 42 C69 33 82 33 82 42 L82 64 L69 64 Z"/>
+    <path class="f" d="M30 55 C30 51 70 51 70 55 L70 64 L30 64 Z"/>
+    <path class="f" d="M24 64 L76 64 L68 72 L32 72 Z"/>
+    <path class="sh" d="M70 44 L80 44 L80 62 L70 62 Z"/>
+    <path class="t" d="M34 80 L30 88 M44 80 L42 92 M56 80 L58 92 M66 80 L70 88" stroke-dasharray="3 3"/>`,
+  sleeppod: `
+    <rect class="f" x="8" y="32" width="84" height="44" rx="22"/>
+    <path class="f" d="M28 56 C28 38 72 38 72 56 Z"/>
+    <path class="sh" d="M34 54 C34 44 66 44 66 54 Z"/>
+    <path class="s" d="M8 62 H92"/>
+    <circle class="d" cx="20" cy="54" r="3"/><circle class="d" cx="80" cy="54" r="3"/>
+    <path class="s" d="M24 76 L20 88 M76 76 L80 88"/>`,
+  grate: `
+    <rect class="f" x="14" y="14" width="72" height="72" rx="5"/>
+    <path class="s" d="M28 26 V74 M40 26 V74 M52 26 V74 M64 26 V74 M76 26 V74" style="stroke-width:4.5"/>
+    <circle class="d" cx="20" cy="20" r="2.5"/><circle class="d" cx="80" cy="20" r="2.5"/>
+    <circle class="d" cx="20" cy="80" r="2.5"/><circle class="d" cx="80" cy="80" r="2.5"/>`,
+  specimen: `
+    <rect class="d" x="22" y="6" width="56" height="9" rx="2"/>
+    <rect class="f" x="26" y="15" width="48" height="68"/>
+    <path class="sh" d="M28 38 L72 38 L72 81 L28 81 Z"/>
+    <path class="f" d="M40 68 C35 52 45 42 52 47 C60 42 67 56 61 68 C67 74 58 80 50 75 C42 80 33 74 40 68 Z"/>
+    <circle class="d" cx="47" cy="56" r="2.6"/><circle class="d" cx="56" cy="57" r="2.6"/>
+    <circle class="t" cx="36" cy="28" r="2.5"/><circle class="t" cx="62" cy="24" r="3"/><circle class="t" cx="58" cy="32" r="1.8"/>
+    <rect class="d" x="20" y="83" width="60" height="10" rx="2"/>`,
+  console: `
+    <rect class="f" x="30" y="8" width="40" height="26" rx="3"/>
+    <path class="sh" d="M33 11 h34 v20 h-34z"/>
+    <path class="s" d="M36 24 l6 -5 6 7 6 -9 6 6" style="stroke-width:2"/>
+    <path class="f" d="M10 62 L24 34 L76 34 L90 62 Z"/>
+    <circle class="d" cx="30" cy="48" r="3.5"/><circle class="f" cx="42" cy="48" r="3.5"/>
+    <rect class="d" x="54" y="44" width="18" height="7" rx="2"/>
+    <rect class="f" x="10" y="62" width="80" height="26"/>
+    <path class="s" d="M22 72 h20 M22 80 h12"/>`,
+  crate: `
+    <rect class="d" x="12" y="16" width="76" height="9"/>
+    <rect class="f" x="14" y="25" width="72" height="62"/>
+    <rect class="s" x="21" y="32" width="58" height="48" style="stroke-width:2"/>
+    <path class="s" d="M21 32 L79 80 M79 32 L21 80" style="stroke-width:2.4"/>
+    <path class="sh" d="M70 25 h16 v62 h-16z"/>`,
+  reactor: `
+    <rect class="f" x="30" y="12" width="40" height="78" rx="9"/>
+    <ellipse class="f" cx="50" cy="13" rx="20" ry="5"/>
+    <rect class="sh" x="36" y="24" width="28" height="58" rx="6"/>
+    <circle class="f" cx="50" cy="52" r="13"/>
+    <path class="d" d="M50 52 L43 41 A13 13 0 0 1 57 41 Z M50 52 L63 54 A13 13 0 0 1 57 63 Z M50 52 L43 63 A13 13 0 0 1 37 54 Z"/>
+    <path class="s" d="M18 30 h10 M18 72 h10 M72 30 h10 M72 72 h10"/>`,
+  hydro: `
+    <path class="f" d="M30 62 C25 44 29 30 36 22 C40 34 39 50 37 62 Z"/>
+    <path class="f" d="M50 62 C49 40 56 30 64 25 C62 40 58 52 57 62 Z"/>
+    <path class="f" d="M66 62 C68 52 75 45 84 44 C81 53 76 58 73 62 Z"/>
+    <circle class="f" cx="36" cy="19" r="6"/><circle class="d" cx="64" cy="23" r="5"/>
+    <path class="f" d="M12 62 L88 62 L82 90 L18 90 Z"/>
+    <path class="s" d="M14 71 H86"/><path class="sh" d="M66 72 h18 l-4 16 h-14z"/>`,
+
+  // ----- Hollow Hill House -----
+  pew: `
+    <rect class="f" x="10" y="16" width="80" height="38" rx="4"/>
+    <path class="s" d="M14 30 H86" style="stroke-width:2"/>
+    <circle class="s" cx="50" cy="40" r="6" style="stroke-width:2"/>
+    <rect class="f" x="6" y="54" width="88" height="12" rx="2"/>
+    <path class="s" d="M14 66 V90 M86 66 V90"/>`,
+  coffin: `
+    <path class="f" d="M36 6 L64 6 L78 30 L66 94 L34 94 L22 30 Z"/>
+    <path class="sh" d="M60 10 L73 30 L63 90 L55 90 Z"/>
+    <path class="s" d="M50 28 V64 M40 40 H60"/>`,
+  wardrobe: `
+    <path class="d" d="M12 8 H88 V17 H12 Z"/>
+    <rect class="f" x="17" y="17" width="66" height="75"/>
+    <path class="s" d="M50 21 V88"/>
+    <rect class="s" x="23" y="25" width="21" height="58" style="stroke-width:1.8"/>
+    <rect class="s" x="56" y="25" width="21" height="58" style="stroke-width:1.8"/>
+    <circle class="d" cx="46" cy="54" r="2.6"/><circle class="d" cx="54" cy="54" r="2.6"/>
+    <path class="sh" d="M66 21 h13 v67 h-13z"/>`,
+  clock: `
+    <rect class="f" x="31" y="5" width="38" height="36" rx="10"/>
+    <circle class="f" cx="50" cy="23" r="12"/>
+    <path class="s" d="M50 23 V15 M50 23 L57 27" style="stroke-width:2.2"/>
+    <rect class="f" x="36" y="41" width="28" height="44"/>
+    <path class="s" d="M50 45 V68" style="stroke-width:2"/><circle class="d" cx="50" cy="72" r="5.5"/>
+    <rect class="f" x="29" y="85" width="42" height="10"/>`,
+  candelabra: `
+    <path class="s" d="M50 86 V46 M30 50 Q30 61 50 61 Q70 61 70 50 M30 50 V42 M70 50 V42"/>
+    <path class="f" d="M36 92 H64 L57 82 H43 Z"/>
+    <rect class="f" x="26" y="28" width="8" height="14"/><rect class="f" x="46" y="20" width="8" height="26"/><rect class="f" x="66" y="28" width="8" height="14"/>
+    <path class="d" d="M30 13 C33.5 18 33.5 22 30 24.5 C26.5 22 26.5 18 30 13 Z M50 5 C53.5 10 53.5 14 50 16.5 C46.5 14 46.5 10 50 5 Z M70 13 C73.5 18 73.5 22 70 24.5 C66.5 22 66.5 18 70 13 Z"/>`,
+  mirror: `
+    <ellipse class="f" cx="50" cy="40" rx="27" ry="33"/>
+    <ellipse class="sh" cx="50" cy="40" rx="19" ry="25"/>
+    <ellipse class="s" cx="50" cy="40" rx="19" ry="25" style="stroke-width:1.6"/>
+    <path class="t" d="M39 24 L55 48 M45 20 L60 41"/>
+    <path class="s" d="M50 73 V86 M33 93 L50 85 L67 93"/>`,
+  gravestone: `
+    <path class="f" d="M24 88 V40 C24 16 76 16 76 40 V88 Z"/>
+    <path class="sh" d="M63 24 C72 30 76 37 76 46 V88 H66 Z"/>
+    <path class="s" d="M38 44 H62 M38 54 H58 M38 64 H54" style="stroke-width:2.4"/>
+    <path class="s" d="M12 90 H88"/>
+    <path class="t" d="M16 90 l4 -7 3 7 M80 90 l3 -7 4 7"/>`,
 };
+
+// Zeta-9 teleporter pad, drawn on the floor under anything else in the square.
+export function padSvg() {
+  return `
+    <circle class="pad-ring" cx="50" cy="50" r="40"/>
+    <circle class="pad-ring2" cx="50" cy="50" r="30"/>
+    <path class="pad-bolt" d="M54 26 L40 54 L52 54 L46 76 L62 44 L50 44 Z"/>`;
+}
 
 export function objectSvg(kind) {
   return OBJ[kind] || '';
@@ -272,7 +383,73 @@ export function makeLook(person) {
   };
 }
 
-export function portraitSvg(person, { dead = false, color = null, tint = null } = {}) {
+export function portraitSvg(person, opts = {}) {
+  if (person.species === 'alien') return alienPortraitSvg(person, opts);
+  if (person.ghost) return ghostPortraitSvg(person, opts);
+  return humanPortraitSvg(person, opts);
+}
+
+function wrapPortrait(parts, color) {
+  const style = color ? ` style="--pc:${color}"` : '';
+  return `<svg class="art portrait" viewBox="0 0 100 100" aria-hidden="true"${style}>${parts.join('')}</svg>`;
+}
+
+// Aliens: same ink-and-paper rules, different anatomy.
+function alienPortraitSvg(person, { dead = false, color = null, tint = null } = {}) {
+  const rng = new Rng(person.lookSeed);
+  const head = rng.pick(['dome', 'tall', 'wide', 'squid']);
+  const eyes = rng.pick([1, 2, 2, 3, 'stalks']);
+  const antennae = eyes !== 'stalks' && rng.chance(0.6) ? rng.pick(['bobbles', 'curly']) : null;
+  const mouth = rng.pick(['smile', 'fangs', 'o', 'flat']);
+  const parts = [];
+  if (tint) parts.push(`<rect width="100" height="100" fill="${tint}"/>`);
+  parts.push(`<rect width="100" height="100" fill="url(#pt-halftone)" opacity="0.55"/>`);
+  // space suit, coloured with the alien's ink
+  parts.push(`<g class="outfit"><path class="d" d="M8 100 C12 82 30 77 50 77 C70 77 88 82 92 100 Z"/></g>
+    <path class="f" d="M30 79 Q50 91 70 79 L70 84 Q50 96 30 84 Z"/><circle class="p" cx="64" cy="92" r="3"/><circle class="p" cx="36" cy="92" r="2"/>`);
+  parts.push(`<path class="f" d="M44 64 L44 82 L56 82 L56 64 Z"/>`);
+  let top = 22; // y of the top of the head, for antennae
+  if (head === 'dome') { parts.push(`<ellipse class="f" cx="50" cy="44" rx="23" ry="25"/>`); top = 19; }
+  else if (head === 'tall') { parts.push(`<path class="f" d="M50 8 C71 8 73 40 71 56 C69 70 59 74 50 74 C41 74 31 70 29 56 C27 40 29 8 50 8 Z"/>`); top = 8; }
+  else if (head === 'wide') { parts.push(`<ellipse class="f" cx="50" cy="48" rx="31" ry="21"/>`); top = 27; }
+  else {
+    parts.push(`<path class="s" d="M38 62 C34 72 40 76 36 84 M46 66 C44 76 48 80 46 88 M54 66 C56 76 52 80 54 88 M62 62 C66 72 60 76 64 84"/>`);
+    parts.push(`<ellipse class="f" cx="50" cy="42" rx="24" ry="24"/>`); top = 18;
+  }
+  parts.push(`<circle class="sh" cx="64" cy="54" r="5"/><circle class="t" cx="33" cy="38" r="2.5"/><circle class="t" cx="66" cy="34" r="2"/>`);
+  if (antennae === 'bobbles') parts.push(`<path class="s" d="M42 ${top + 3} L34 ${top - 12} M58 ${top + 3} L66 ${top - 12}"/><circle class="d" cx="34" cy="${top - 14}" r="4"/><circle class="d" cx="66" cy="${top - 14}" r="4"/>`);
+  if (antennae === 'curly') parts.push(`<path class="s" d="M50 ${top + 1} C50 ${top - 10} 60 ${top - 12} 58 ${top - 4} C56 ${top} 52 ${top - 4} 55 ${top - 7}"/>`);
+  const eye = (x, y, r) => (dead
+    ? `<path class="s" d="M${x - r} ${y - r} l${2 * r} ${2 * r} M${x + r} ${y - r} l${-2 * r} ${2 * r}" style="stroke-width:2.6"/>`
+    : `<circle class="f" cx="${x}" cy="${y}" r="${r}"/><circle class="d" cx="${x + r * 0.15}" cy="${y + r * 0.1}" r="${r * 0.48}"/><circle class="p" cx="${x - r * 0.15}" cy="${y - r * 0.25}" r="${r * 0.16}"/>`);
+  if (eyes === 1) parts.push(eye(50, 44, 10));
+  if (eyes === 2) parts.push(eye(41, 45, 6.5) + eye(59, 45, 6.5));
+  if (eyes === 3) parts.push(eye(40, 47, 5.5) + eye(60, 47, 5.5) + eye(50, 33, 5));
+  if (eyes === 'stalks') parts.push(`<path class="s" d="M42 ${top + 4} L36 ${top - 10} M58 ${top + 4} L64 ${top - 10}"/>${eye(36, top - 14, 6)}${eye(64, top - 14, 6)}`);
+  const my = head === 'wide' ? 58 : 59;
+  if (dead) parts.push(`<path class="s" d="M42 ${my} Q46 ${my - 3} 50 ${my} Q54 ${my + 3} 58 ${my}"/>`);
+  else if (mouth === 'smile') parts.push(`<path class="s" d="M40 ${my - 1} Q50 ${my + 7} 60 ${my - 1}"/>`);
+  else if (mouth === 'fangs') parts.push(`<path class="s" d="M40 ${my} H60"/><path class="f" d="M44 ${my} l2 5 l2 -5 Z M52 ${my} l2 5 l2 -5 Z" style="stroke-width:1.6"/>`);
+  else if (mouth === 'o') parts.push(`<ellipse class="d" cx="50" cy="${my + 1}" rx="3.5" ry="4.5"/>`);
+  else parts.push(`<path class="s" d="M43 ${my} H57"/>`);
+  return wrapPortrait(parts, color);
+}
+
+// The ghost: a bedsheet with ambitions.
+function ghostPortraitSvg(person, { color = null, tint = null } = {}) {
+  const parts = [];
+  if (tint) parts.push(`<rect width="100" height="100" fill="${tint}"/>`);
+  parts.push(`<rect width="100" height="100" fill="url(#pt-halftone)" opacity="0.4"/>`);
+  parts.push(`<path class="t" d="M14 40 q-6 6 0 12 M86 40 q6 6 0 12 M10 62 q-5 5 0 10 M90 62 q5 5 0 10" opacity="0.7"/>`);
+  parts.push(`<path class="f ghost-sheet" d="M24 92 C22 60 20 18 50 14 C80 18 78 60 76 92 C70 86 66 98 60 92 C55 86 50 98 44 92 C38 86 34 98 30 92 C28 90 26 90 24 92 Z"/>`);
+  parts.push(`<g class="outfit"><path class="d" d="M30 74 Q50 82 70 74 L70 79 Q50 87 30 79 Z" opacity="0.85"/></g>`);
+  parts.push(`<ellipse class="d" cx="41" cy="42" rx="5" ry="7.5"/><ellipse class="d" cx="59" cy="42" rx="5" ry="7.5"/>`);
+  parts.push(`<ellipse class="d" cx="50" cy="60" rx="5" ry="6.5"/>`);
+  parts.push(`<path class="sh" d="M66 30 C74 44 74 70 72 90 L66 92 C68 70 68 46 62 34 Z"/>`);
+  return wrapPortrait(parts, color);
+}
+
+function humanPortraitSvg(person, { dead = false, color = null, tint = null } = {}) {
   const L = makeLook(person);
   const { cx, cy } = HEAD;
   const parts = [];

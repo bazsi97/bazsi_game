@@ -1,9 +1,10 @@
 // UI: front page (pick a case), the case itself, taps, saved progress.
 
-import { generatePuzzle, DIFFICULTY } from './generator.js';
-import { clueText, isFree } from './clues.js';
-import { OBJECTS } from './themes.js';
-import { objectSvg, portraitSvg, patternDefsSvg } from './art.js';
+import { generatePuzzle, withLiar } from './generator.js';
+import { clueText, isFree, canStand, cluesAbout } from './clues.js';
+import { OBJECTS, THEMES } from './themes.js';
+import { objectSvg, portraitSvg, patternDefsSvg, padSvg } from './art.js';
+import { logicalSolve } from './solver.js';
 import { explainNext } from './hints.js';
 import { play, unlock, setSoundEnabled } from './sound.js';
 
@@ -30,6 +31,9 @@ function loadStore() {
   s.settings.autoX ??= true;
   s.settings.highlight ??= true;
   s.settings.sound ??= true;
+  s.settings.earthNames ??= false;
+  s.theme ||= 'manor';
+  s.seenIntro ||= {};
   return s;
 }
 function saveStore() {
@@ -40,6 +44,7 @@ function saveStore() {
     store.progress[P.key] = {
       placed: S.placed, marks: [...S.marks], notes: notesToJson(S.notes), hints: S.hints, elapsed: S.elapsed,
       solved: S.solved, touched: S.placed.some((x) => x != null) || S.marks.size > 0 || S.notes.size > 0,
+      liarKnown: S.liarKnown || undefined, suspect: S.suspect ?? undefined,
     };
   }
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch { /* ignore */ }
@@ -50,22 +55,69 @@ const notesToJson = (notes) => [...notes].filter(([, ks]) => ks.size).map(([i, k
 const notesFromJson = (arr) => new Map((arr || []).map(([i, ks]) => [i, new Set(ks)]));
 
 const DESKS = {
-  easy: { name: 'Easy', stars: '★☆☆', beat: 'The Village Beat', blurb: 'A 5×5 scene. Statements about rooms and furniture only.' },
-  medium: { name: 'Medium', stars: '★★☆', beat: 'The City Desk', blurb: 'A 6×6 scene, with at most one "one row north of…" twist.' },
-  hard: { name: 'Hard', stars: '★★★', beat: 'The Night Shift', blurb: 'A 6×6 scene full of who-stood-where-of-whom.' },
+  easy: { name: 'Easy', stars: '★☆☆' },
+  medium: { name: 'Medium', stars: '★★☆' },
+  hard: { name: 'Hard', stars: '★★★' },
 };
-const caseKey = (d, n) => `${d}-${n}`;
-const parseKey = (k) => { const m = /^(easy|medium|hard)-(\d+)$/.exec(k || ''); return m ? [m[1], Number(m[2])] : null; };
-const solvedCount = (d) => Object.entries(store.progress).filter(([k, v]) => k.startsWith(d + '-') && v.solved).length;
+
+// What each theme's front-page cards and chapter intro say.
+const EDITIONS = {
+  manor: {
+    blurb: 'Country-house murder, the classic way.',
+    desks: {
+      easy: ['The Village Beat', 'A 5×5 scene. Statements about rooms and furniture only.'],
+      medium: ['The City Desk', 'A 6×6 scene, with at most one "one row north of…" twist.'],
+      hard: ['The Night Shift', 'A 6×6 scene full of who-stood-where-of-whom.'],
+    },
+  },
+  zeta: {
+    blurb: 'An alien research station. Telepaths, teleporters, and one human impostor.',
+    desks: {
+      easy: ['Telepathy', 'A 5×5 station. Every alien tells you what they sensed about someone else.'],
+      medium: ['Teleporters', 'Plus two linked pads: standing on one counts as beside whatever surrounds its twin.'],
+      hard: ['The Impostor', 'Plus a human in disguise among the crew. Humans lie: one statement is false.'],
+    },
+    host: 'MOTHER, the station computer',
+    intro: [
+      'Greetings, detective. Everyone aboard Outpost Zeta-9 is an alien, and every alien is telepathic: each one tells you what they <b>sensed about someone else</b>, never about themselves.',
+      'On <b>Medium</b>, two <b>teleporter pads</b> are linked. Standing on one counts as standing beside everything around its twin.',
+      'On <b>Hard</b>, one crew member is a <b>human in disguise</b>. Humans lie: exactly one statement is false. Work out whose, and the case falls into place.',
+      'Tip: the switch above the board flips everyone between their alien names and the Earth names they use when visiting.',
+    ],
+  },
+  haunted: {
+    blurb: 'A haunted house. One of the suspects has been dead for a hundred years.',
+    desks: {
+      easy: ['The Hallway', 'A 5×5 house. One ghost among the suspects.'],
+      medium: ['The Upstairs', 'A 6×6 house, with at most one "one row north of…" twist.'],
+      hard: ['The Witching Hour', 'A 6×6 house full of who-stood-where-of-whom.'],
+    },
+    host: 'Mrs Hobbs, the housekeeper',
+    intro: [
+      'Welcome to Hollow Hill House, detective. Mind the cold spots.',
+      'One of the suspects is a <b>ghost</b>. Ghosts drift straight through furniture, so the ghost may stand <b>inside</b> a wardrobe, a piano or a coffin, where nobody living can.',
+      'Everything else is as usual: one person per row and column, and the victim was alone with the murderer.',
+    ],
+  },
+};
+const COMING_SOON = [['Egypt', 'Masks of the gods and a pyramid-shaped board'], ['The Midnight Heist', 'Security cameras that see along their row']];
+
+// Manor keys stay "medium-3" (saved progress predates themes); others are "zeta-medium-3".
+const caseKey = (t, d, n) => (t === 'manor' ? `${d}-${n}` : `${t}-${d}-${n}`);
+const parseKey = (k) => {
+  const m = /^(?:(zeta|haunted)-)?(easy|medium|hard)-(\d+)$/.exec(k || '');
+  return m ? [m[1] || 'manor', m[2], Number(m[3])] : null;
+};
+const casesOf = (t, d) => Object.entries(store.progress).filter(([k]) => { const c = parseKey(k); return c && c[0] === t && c[1] === d; });
+const solvedCount = (t, d) => casesOf(t, d).filter(([, v]) => v.solved).length;
 // the lowest case number not yet played, so solved cases never come round again
-function nextNewCase(d) {
+function nextNewCase(t, d) {
   let n = 1;
-  while (store.progress[caseKey(d, n)]?.solved || store.progress[caseKey(d, n)]?.touched) n++;
+  while (store.progress[caseKey(t, d, n)]?.solved || store.progress[caseKey(t, d, n)]?.touched) n++;
   return n;
 }
-const inProgress = (d) => Object.entries(store.progress)
-  .filter(([k, v]) => k.startsWith(d + '-') && !v.solved && v.touched)
-  .map(([k]) => parseKey(k)[1]).sort((a, b) => a - b);
+const inProgress = (t, d) => casesOf(t, d).filter(([, v]) => !v.solved && v.touched)
+  .map(([k]) => parseKey(k)[2]).sort((a, b) => a - b);
 
 // ---------- colours ----------
 // Each suspect gets an ink of their own; the victim is always printed in red.
@@ -87,14 +139,17 @@ function setHash(h) {
   } catch { /* sandboxed frames may refuse URL changes */ }
 }
 
-function openCase(d, n) {
+function openCase(t, d, n) {
   if (S && P) saveStore();
   n = Math.max(1, n);
-  P = generatePuzzle({ seed: n, difficulty: d });
-  P.key = caseKey(d, n);
+  P = generatePuzzle({ seed: n, difficulty: d, theme: t });
+  P.key = caseKey(t, d, n);
   P.num = n;
   P.desk = d;
+  P.themeId = t;
+  applyNames();
   store.last = P.key;
+  store.theme = t;
   const saved = store.progress[P.key];
   S = {
     placed: saved?.placed ?? new Array(P.people.length).fill(null),
@@ -112,12 +167,40 @@ function openCase(d, n) {
     hintFocus: null,
     hintStage: 0,
     hintMarks: null,
+    liarKnown: saved?.liarKnown ?? false,
+    suspect: saved?.suspect ?? null,
   };
   setHash(`#${P.key}`);
   renderPage();
   saveStore();
   window.scrollTo(0, 0);
+  if (EDITIONS[t].intro && !store.seenIntro[t]) showIntro(t);
 }
+
+// Zeta-9: everyone has an alien name and the Earth alias they use on visits.
+function applyNames() {
+  for (const pr of P.people) {
+    if (!pr.alienName) continue;
+    pr.name = store.settings.earthNames ? pr.earthName : pr.alienName;
+    pr.initial = store.settings.earthNames ? pr.earthInitial : pr.alienInitial;
+  }
+}
+function setEarthNames(on) {
+  store.settings.earthNames = on;
+  saveStore();
+  applyNames();
+  renderPage();
+  play('select');
+}
+
+// Story text was written with alien names; follow the Alien/Earth switch.
+function withCurrentNames(text) {
+  for (const pr of P.people) if (pr.alienName && pr.name !== pr.alienName) text = text.split(pr.alienName).join(pr.name);
+  return text;
+}
+
+// The puzzle as it really is: on Hard Zeta-9 the impostor's statement is false.
+const truthView = () => (P.impostor >= 0 ? withLiar(P, P.impostor) : P);
 
 function showHome() {
   if (S && P) saveStore();
@@ -154,24 +237,33 @@ function mastheadHtml(meta) {
 }
 
 function renderHome() {
-  const total = ['easy', 'medium', 'hard'].reduce((a, d) => a + solvedCount(d), 0);
+  const t = store.theme in THEMES ? store.theme : 'manor';
+  const E = EDITIONS[t];
+  const total = Object.keys(store.progress).filter((k) => store.progress[k].solved).length;
   const last = parseKey(store.last);
   const lastP = last && store.progress[store.last];
   const resume = lastP && !lastP.solved && lastP.touched
     ? `<button class="resume" data-act="open" data-case="${store.last}">
          <span class="kicker">Unfinished business</span>
-         <span class="resume-title">Continue ${DESKS[last[0]].name} Case No. ${last[1]} ▸</span>
+         <span class="resume-title">Continue ${last[0] === 'manor' ? '' : THEMES[last[0]].short + ' · '}${DESKS[last[1]].name} No. ${last[2]} ▸</span>
        </button>` : '';
+  const editions = Object.values(THEMES).map((T) => {
+    const solved = ['easy', 'medium', 'hard'].reduce((a, d) => a + solvedCount(T.id, d), 0);
+    return `<button class="edition ${T.id === t ? 'on' : ''}" data-act="theme" data-theme="${T.id}" aria-pressed="${T.id === t}">
+        <span class="edition-name">${T.name}</span><span class="edition-meta">${solved} solved</span></button>`;
+  }).join('') + COMING_SOON.map(([name, what]) => `<div class="edition soon" title="${what}"><span class="edition-name">${name}</span><span class="edition-meta">coming soon</span></div>`).join('');
   const desks = Object.entries(DESKS).map(([d, D]) => {
-    const open = inProgress(d).filter((n) => caseKey(d, n) !== store.last).slice(0, 4);
+    const [beat, blurb] = E.desks[d];
+    const open = inProgress(t, d).filter((n) => caseKey(t, d, n) !== store.last).slice(0, 4);
+    const next = nextNewCase(t, d);
     return `
       <article class="desk">
-        <div class="desk-head"><span class="desk-stars">${D.stars}</span><span class="desk-solved">${solvedCount(d)} solved</span></div>
+        <div class="desk-head"><span class="desk-stars">${D.stars}</span><span class="desk-solved">${solvedCount(t, d)} solved</span></div>
         <h3>${D.name}</h3>
-        <div class="desk-beat">${D.beat}</div>
-        <p>${D.blurb}</p>
-        <button class="tool primary" data-act="open" data-case="${caseKey(d, nextNewCase(d))}">New case · No. ${nextNewCase(d)}</button>
-        ${open.length ? `<div class="desk-open">In progress: ${open.map((n) => `<button data-act="open" data-case="${caseKey(d, n)}">No. ${n}</button>`).join(' ')}</div>` : ''}
+        <div class="desk-beat">${beat}</div>
+        <p>${blurb}</p>
+        <button class="tool primary" data-act="open" data-case="${caseKey(t, d, next)}">New case · No. ${next}</button>
+        ${open.length ? `<div class="desk-open">In progress: ${open.map((n) => `<button data-act="open" data-case="${caseKey(t, d, n)}">No. ${n}</button>`).join(' ')}</div>` : ''}
       </article>`;
   }).join('');
   $('#app').innerHTML = `
@@ -184,6 +276,11 @@ function renderHome() {
           <input id="detective" type="text" maxlength="24" autocomplete="nickname" placeholder="e.g. Marple" value="${escapeHtml(store.detective)}">
         </label>
         ${resume}
+        <section class="editions-wrap">
+          <h3 class="section-title">The editions</h3>
+          <div class="editions">${editions}</div>
+          <p class="edition-blurb">${E.blurb}${E.intro ? ` <button class="link" data-act="intro" data-theme="${t}">Read the briefing</button>` : ''}</p>
+        </section>
         <div class="desks">${desks}</div>
         <p class="home-foot">Every case is generated for you and checked to have exactly one solution. Solved cases never come round again on this device. <button class="link" data-act="rules">How to play</button></p>
       </main>
@@ -195,22 +292,43 @@ function renderHome() {
   });
 }
 
+function showIntro(t) {
+  const E = EDITIONS[t];
+  store.seenIntro[t] = true;
+  saveStore();
+  modal(`
+    <div class="kicker">A word from ${E.host}</div>
+    <h2>${THEMES[t].name}</h2>
+    <div class="rule"></div>
+    ${E.intro.map((x) => `<p>${x}</p>`).join('')}
+    <div class="actions"><button class="tool primary" data-act="close">On the case</button></div>`);
+}
+
 function renderPage() {
   const D = DESKS[P.desk];
+  const T = THEMES[P.themeId];
+  const names = P.people.some((pr) => pr.alienName)
+    ? `<div class="name-toggle" role="group" aria-label="Names">
+        <button data-act="names" data-earth="0" aria-pressed="${!store.settings.earthNames}">Alien names</button>
+        <button data-act="names" data-earth="1" aria-pressed="${store.settings.earthNames}">Earth names</button>
+      </div>` : '';
+  const twist = P.impostor >= 0 ? '<p class="twist">One crew member is a <b>human in disguise</b>, and their statement is false.</p>'
+    : P.rules?.ghost ? '<p class="twist">The <b>ghost</b> can stand inside furniture.</p>'
+      : P.rules?.teleporters ? '<p class="twist">Standing on a <b>teleporter pad</b> counts as beside everything around its twin.</p>' : '';
   $('#app').innerHTML = `
     ${patternDefsSvg()}
     <div class="page">
       ${mastheadHtml(`
         <button class="back" data-act="home" aria-label="All cases">◂ Cases</button>
-        <span>${D.name} · Case No. ${P.num}</span>
+        <span>${P.themeId === 'manor' ? '' : `${T.short} · `}${D.name} · No. ${P.num}</span>
         <span class="difficulty">${D.stars}</span>`)}
       <main class="layout">
         <section class="story">
           <h2 class="headline">${P.headline}</h2>
           <p class="deck">Every suspect stood in a different row and column. The victim was alone with the killer.</p>
-          <p class="lede">${P.lede}</p>
+          <p class="lede">${withCurrentNames(P.lede)}</p>
         </section>
-        <section class="board-wrap">${boardSvg()}</section>
+        <section class="board-wrap">${names}${twist}${boardSvg()}</section>
         <section class="dossier">
           <h3>The Statements</h3>
           <div class="cards">${P.people.map(cardHtml).join('')}</div>
@@ -237,8 +355,10 @@ function cardHtml(person, k) {
     ? '<b>The Victim.</b> Alone with the murderer.'
     : person.clues.map((c) => clueText(P, person, c)).join(' ')
       .replace(/data-who="(\d+)"/g, (_, j) => `style="color:${inkOf(Number(j))}"`);
+  const lie = P.impostor >= 0 && !person.isVictim
+    ? `<span class="lie-tag" role="button" tabindex="0" data-act="suspect" data-k="${k}" aria-label="Mark ${person.name} as the liar">lying?</span>` : '';
   return `
-    <button class="card ${person.isVictim ? 'victim' : ''}" data-person="${k}" aria-label="${person.name}" style="--pc:${inkOf(k)};--pc-tint:${tintOf(k)}">
+    <button class="card ${person.isVictim ? 'victim' : ''} ${person.ghost ? 'ghost' : ''}" data-person="${k}" aria-label="${person.name}" style="--pc:${inkOf(k)};--pc-tint:${tintOf(k)}">${lie}
       <div class="frame">${portraitSvg(person, { dead: person.isVictim, color: inkOf(k), tint: tintOf(k) })}</div>
       <div class="meta">
         <div class="name"><span class="init">${person.initial}</span>${person.name}</div>
@@ -286,6 +406,12 @@ function boardSvg() {
     const r = Math.floor(i / n), c = i % n, x = c * CELL, y = r * CELL;
     if (c < n - 1 && P.cells[i].area === P.cells[i + 1].area) out.push(`<line class="gridline" x1="${x + CELL}" y1="${y}" x2="${x + CELL}" y2="${y + CELL}"/>`);
     if (r < n - 1 && P.cells[i].area === P.cells[i + n].area) out.push(`<line class="gridline" x1="${x}" y1="${y + CELL}" x2="${x + CELL}" y2="${y + CELL}"/>`);
+  }
+  // teleporter pads (Zeta-9), under any furniture
+  for (let i = 0; i < n * n; i++) {
+    if (P.cells[i].pad == null) continue;
+    const x = (i % n) * CELL, y = Math.floor(i / n) * CELL;
+    out.push(`<g class="pad" transform="translate(${x + 4} ${y + 4}) scale(0.92)">${padSvg()}</g>`);
   }
   // furniture
   for (let i = 0; i < n * n; i++) {
@@ -353,7 +479,7 @@ function renderDynamic() {
     // one look for every excluded square: crossed by you, by a placed person's row/column,
     // and blocked furniture squares in those rows/columns too
     if (S.marks.has(i) || auto) out.push(cross(i, 'excluded'));
-    if (!isFree(P, i)) continue;
+    if (!isFree(P, i) && !S.notes.get(i)?.size) continue; // ghosts may have notes inside furniture
     // notes are kept but hidden while crossed out or once that person is placed
     const ks = [...(S.notes.get(i) || [])].filter((k) => S.placed[k] == null);
     if (ks.length && !auto && !S.marks.has(i)) out.push(notesSvg(i, ks));
@@ -369,6 +495,7 @@ function renderDynamic() {
     const cx = (cell % n) * CELL + CELL / 2, cy = Math.floor(cell / n) * CELL + CELL / 2;
     const cls = ['token'];
     if (person.isVictim) cls.push('victim');
+    if (person.ghost) cls.push('ghost');
     if (k === S.selected) cls.push('selected');
     if (conflicts.has(k)) cls.push('conflict');
     if (k === S.flagged) cls.push('flagged');
@@ -389,6 +516,8 @@ function renderDynamic() {
     el.classList.toggle('flagged', k === S.flagged);
     el.classList.toggle('hinted', k === S.hintFocus);
     el.classList.toggle('ref', refs.has(k));
+    el.classList.toggle('suspect', k === S.suspect && !(S.liarKnown && k === P.impostor));
+    el.classList.toggle('liar', S.liarKnown && k === P.impostor);
     el.setAttribute('aria-pressed', String(k === S.selected));
   });
   const undo = $('[data-act="undo"]');
@@ -412,7 +541,7 @@ function clueHighlights(k) {
   const box = (i) => `<rect class="clue-hi" x="${(i % n) * CELL + 5}" y="${Math.floor(i / n) * CELL + 5}" width="${CELL - 10}" height="${CELL - 10}" rx="12"/>`;
   const tint = (i) => `<rect class="area-hi" x="${(i % n) * CELL}" y="${Math.floor(i / n) * CELL}" width="${CELL}" height="${CELL}"/>`;
   const EDGE = { top: (i) => i < n, bottom: (i) => i >= n * (n - 1), left: (i) => i % n === 0, right: (i) => i % n === n - 1 };
-  for (const c of P.people[k].clues) {
+  for (const c of cluesAbout(P, k)) {
     for (let i = 0; i < n * n; i++) {
       if (c.obj && P.cells[i].obj === c.obj) out.push(box(i));
       else if (c.area != null && P.cells[i].area === c.area) out.push(tint(i));
@@ -423,9 +552,9 @@ function clueHighlights(k) {
   return out;
 }
 
-// People that the selected person's statement mentions ("one row north of Hugo").
+// People that statements about the selected person mention ("one row north of Hugo").
 function referencedPeople(k) {
-  return new Set(P.people[k].clues.filter((c) => c.who != null).map((c) => c.who));
+  return new Set(cluesAbout(P, k).filter((c) => c.who != null).map((c) => c.who));
 }
 
 // Pencil marks: each person has a fixed slot (3 per row), top and bottom of the cell
@@ -498,7 +627,7 @@ function onPointerDown(ev, board) {
   ev.preventDefault();
   try { board.setPointerCapture(ev.pointerId); } catch { /* ignore */ }
   gesture = { id: ev.pointerId, start: i, last: i, swiped: false, held: false, timer: null };
-  if (S.selected != null && !S.crossMode && isFree(P, i)) {
+  if (S.selected != null && !S.crossMode && canStand(P, S.selected, i)) {
     showPress(i);
     gesture.timer = setTimeout(() => {
       gesture.held = true;
@@ -549,7 +678,8 @@ const PAINT_SOUND = { x: 'cross', unx: 'uncross', note: 'note', unnote: 'erase' 
 
 // returns true when the square could be painted
 function paint(i, mode) {
-  if (!isFree(P, i) || S.placed.includes(i)) return false;
+  if (S.placed.includes(i)) return false;
+  if (S.crossMode ? !isFree(P, i) : !canStand(P, S.selected, i)) return false;
   if (mode === 'x') S.marks.add(i);
   else if (mode === 'unx') S.marks.delete(i);
   else {
@@ -583,7 +713,7 @@ function tapCell(i) {
     setStatus(defaultStatus());
     return;
   }
-  if (!isFree(P, i)) {
+  if (S.crossMode ? !isFree(P, i) : S.selected == null ? !isFree(P, i) : !canStand(P, S.selected, i)) {
     if (S.selected != null) {
       play('bump');
       toast(`Nobody can stand on the ${OBJECTS[P.cells[i].obj].name}.`);
@@ -693,7 +823,8 @@ function hint() {
     return;
   }
   // then, for the next person logic can pin down: 1) name them, 2) explain why, 3) place them
-  const h = explainNext(P, S.placed);
+  if (P.impostor >= 0 && !S.liarKnown) return liarHint();
+  const h = explainNext(truthView(), S.placed);
   const next = h ? h.target : P.deduction.find((k) => S.placed[k] == null);
   if (next == null) return;
   const name = P.people[next].name;
@@ -734,6 +865,60 @@ function hint() {
   saveStore();
 }
 
+// Hard Zeta-9: before anything else, the hints unmask the impostor in three steps.
+function liarHint() {
+  const L = P.impostor;
+  const name = P.people[L].name;
+  S.hints++;
+  if (S.hintFocus !== L || !S.hintStage) {
+    S.hintFocus = L;
+    S.hintStage = 1;
+    S.hintMarks = null;
+    hideHintSlip();
+    play('hint');
+    renderDynamic();
+    toast(`One statement is a lie. Look closely at ${name}. Tap Hint again for a clue.`, false);
+  } else if (S.hintStage === 1) {
+    S.hintStage = 2;
+    // show what goes wrong if someone else is blamed
+    // find a wrong suspicion whose collapse is easy to describe (someone else gets stranded)
+    let other = -1, stuck = 'someone';
+    for (const [k, pr] of P.people.entries()) {
+      if (pr.isVictim || k === L) continue;
+      const r = logicalSolve(withLiar(P, k), {});
+      if (other < 0 || (r.stuck >= 0 && r.stuck !== k)) {
+        other = k;
+        stuck = r.stuck >= 0 ? P.people[r.stuck].name : 'someone';
+        if (r.stuck >= 0 && r.stuck !== k) break;
+      }
+    }
+    play('hint');
+    renderDynamic();
+    showHintSlip(name, [
+      'Exactly one crew member is a human in disguise, and only their statement is false.',
+      `Try blaming each crew member in turn. If ${P.people[other].name} were the liar, ${stuck} would end up with nowhere to stand.`,
+      `The same happens whoever you blame, except ${name}. Only with ${name}'s statement as the lie does everyone fit.`,
+    ]);
+    setStatus(`Tap Hint once more to unmask ${name}.`);
+  } else {
+    S.liarKnown = true;
+    S.suspect = L;
+    clearHint();
+    play('place');
+    renderDynamic();
+    toast(`${name} is the human! Their statement is false.`, false);
+  }
+  saveStore();
+}
+
+function toggleSuspect(k) {
+  if (S.solved || (S.liarKnown && P.impostor !== k)) return;
+  S.suspect = S.suspect === k ? null : k;
+  play('select');
+  renderDynamic();
+  saveStore();
+}
+
 function showHintSlip(name, steps) {
   const el = $('.hint-slip');
   if (!el) return;
@@ -769,7 +954,7 @@ function doRestart() {
   S = null; // otherwise openCase would save the current board straight back
   closeModal();
   play('restart');
-  openCase(P.desk, P.num);
+  openCase(P.themeId, P.desk, P.num);
   toast('Case restarted. Fresh start, detective.', false);
 }
 
@@ -804,6 +989,8 @@ function showSolved() {
     <div class="mugshot">${portraitSvg(killer)}</div>
     <div class="caption">${killer.name}, ${killer.title}, photographed leaving the ${room}.</div>
     <p>${killer.name} was alone with ${victim.name} in the <b>${room}</b>. ${store.detective ? detective() : "The Gazette's detective"} has cracked ${DESKS[P.desk].name} Case No. ${P.num}.</p>
+    ${P.impostor >= 0 ? `<p>And the human in disguise? <b>${P.people[P.impostor].alienName}</b>, better known on Earth as <b>${P.people[P.impostor].earthName}</b>.</p>` : ''}
+    ${killer.ghost ? '<p>The killer was the ghost. The Gazette regrets it cannot print a photograph.</p>' : ''}
     <div class="stats"><span>Time ${fmtTime(S.elapsed)}</span><span>Hints ${S.hints}</span></div>
     <div class="actions">
       <button class="tool" data-act="close">View scene</button>
@@ -813,7 +1000,8 @@ function showSolved() {
 }
 
 function showRules() {
-  const legend = Object.keys(OBJECTS).map((o) => `
+  const kinds = P ? [...new Set(P.cells.map((c) => c.obj).filter(Boolean))] : ['chair', 'bed', 'rug', 'bench', 'tree', 'bush', 'table', 'shelf', 'plant', 'piano', 'stove'];
+  const legend = kinds.map((o) => `
     <figure><svg class="art" viewBox="0 0 100 100">${objectSvg(o)}</svg>
     <figcaption class="cap">${OBJECTS[o].name}${OBJECTS[o].occupiable ? ' ✓' : ''}</figcaption></figure>`).join('');
   modal(`
@@ -828,6 +1016,7 @@ function showRules() {
       <li>North is the top of the board. "One row north of Hugo" means the row directly above his; "somewhere north" means any row above.</li>
       <li><b>The only one</b> in a room (or on a kind of seat) means nobody else was there.</li>
       <li>Place everyone, and the killer is revealed.</li>
+      ${P && EDITIONS[P.themeId].intro ? `<li><b>${THEMES[P.themeId].name}:</b> ${EDITIONS[P.themeId].intro.slice(1).join(' ')}</li>` : ''}
     </ul>
     <p><b>Controls.</b> Tap a statement to pick that person. Then <b>tap</b> a square to pencil in their initial, or <b>swipe</b> across squares to note several at once. <b>Hold</b> a square to place them for good: their row and column get crossed out. Hold their letter to take them back off. Use <b>Cross</b> to tap or swipe ✕ onto squares yourself.</p>
     <div class="mini-legend">${legend}</div>
@@ -860,7 +1049,11 @@ document.addEventListener('click', (ev) => {
   if (act) {
     ({
       undo, hint, restart, cross: toggleCross, 'close-hint': () => { hideHintSlip(); S.hintMarks = null; renderDynamic(); }, rules: showRules, close: closeModal, 'do-restart': doRestart,
-      next: () => { closeModal(); const d = P.desk; saveStore(); openCase(d, nextNewCase(d)); },
+      next: () => { closeModal(); const t = P.themeId, d = P.desk; saveStore(); openCase(t, d, nextNewCase(t, d)); },
+      theme: () => { store.theme = ev.target.closest('[data-theme]').dataset.theme; saveStore(); play('select'); renderHome(); },
+      intro: () => showIntro(ev.target.closest('[data-theme]').dataset.theme),
+      names: () => setEarthNames(ev.target.closest('[data-earth]').dataset.earth === '1'),
+      suspect: () => toggleSuspect(Number(ev.target.closest('[data-k]').dataset.k)),
       home: showHome,
       open: () => { closeModal(); const c = parseKey(ev.target.closest('[data-case]')?.dataset.case); if (c) openCase(...c); },
     })[act]?.();

@@ -348,3 +348,42 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .hint-slip li::marker { font-family: var(--display); font-weight: 900; }
 .hint-close { position: absolute; top: 4px; right: 4px; width: 30px; height: 30px; border: 0; background: none; cursor: pointer; font-size: 1rem; }
 .board .hint-hi { fill: var(--red); opacity: 0.13; }
+
+/* ---------- editions (themes) ---------- */
+.editions-wrap { display: grid; gap: 8px; }
+.section-title { margin: 0; font-family: var(--display); font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.95rem; display: flex; align-items: center; gap: 10px; }
+.section-title::before, .section-title::after { content: ''; flex: 1; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); height: 2px; }
+.editions { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.edition {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 11px; text-align: left;
+  background: var(--paper); border: 1.5px solid var(--ink); cursor: pointer; font: inherit; color: inherit; min-height: 56px;
+}
+.edition-name { font-family: var(--display); font-weight: 900; font-size: 1.02rem; line-height: 1.1; }
+.edition-meta { font-family: var(--type); font-size: 0.72rem; }
+.edition.on { background: var(--ink); color: var(--paper); box-shadow: 3px 3px 0 var(--red); }
+.edition.soon { border-style: dashed; opacity: 0.55; cursor: default; }
+.edition-blurb { margin: 0; font-style: italic; font-size: 0.92rem; text-align: center; }
+
+/* ---------- theme twists on the case page ---------- */
+.name-toggle { display: flex; justify-content: center; margin: 0 auto 6px; max-width: 620px; }
+.name-toggle button {
+  flex: 1; max-width: 160px; padding: 7px 10px; min-height: 40px; border: 2px solid var(--ink); background: var(--paper); cursor: pointer;
+  font-family: var(--display); font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink);
+}
+.name-toggle button + button { border-left: 0; }
+.name-toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.twist { margin: 0 auto 6px; max-width: 620px; text-align: center; font-family: var(--type); font-size: 0.8rem; }
+.card .clue i { font-style: normal; font-family: var(--display); font-weight: 700; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; }
+.lie-tag {
+  position: absolute; right: 4px; top: 4px; z-index: 3; padding: 1px 5px; border: 1.5px dashed var(--ink); background: var(--paper);
+  font-family: var(--type); font-size: 0.62rem; cursor: pointer; line-height: 1.4;
+}
+.card.suspect .lie-tag { border-style: solid; background: var(--red); color: var(--paper); border-color: var(--red); }
+.card.liar .lie-tag { border-style: solid; background: var(--red); color: var(--paper); border-color: var(--red); }
+.card.liar .lie-tag::after { content: ' · human!'; }
+.card.liar .clue { text-decoration: line-through; text-decoration-color: var(--red); text-decoration-thickness: 2px; }
+.card.ghost .frame { opacity: 0.9; }
+.board .token.ghost circle.ring { fill-opacity: 0.55; stroke-dasharray: 7 4; }
+.board .pad-ring { fill: none; stroke: var(--ink); stroke-width: 3; stroke-dasharray: 7 5; opacity: 0.7; }
+.board .pad-ring2 { fill: none; stroke: var(--ink); stroke-width: 2; opacity: 0.55; }
+.board .pad-bolt { fill: var(--ink); opacity: 0.55; }

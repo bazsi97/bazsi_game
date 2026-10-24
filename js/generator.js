@@ -8,8 +8,8 @@
 //    unique AND the logical solver rates it at the requested difficulty.
 
 import { Rng } from './rng.js';
-import { OBJECTS, ROOM_TYPES, INDOOR_PATTERNS, ROLES, NAMES, ESTATES, HEADLINES, LEDES } from './themes.js';
-import { trueCluesFor, ownDomainSize } from './clues.js';
+import { OBJECTS, INDOOR_PATTERNS, ROLES, NAMES, THEMES, ALIEN_NAMES, EARTH_NAMES, GHOST_NAMES } from './themes.js';
+import { trueCluesFor, ownDomainSize, clueHolds } from './clues.js';
 import { countSolutions, logicalSolve } from './solver.js';
 
 // relMax: how many person-to-person statements a case may use ("one row north of Hugo").
@@ -20,27 +20,33 @@ export const DIFFICULTY = {
   hard: { n: 6, maxLevel: 2, minLevel: 2, maxInitialSingles: 0, relMax: 3, vague: true },
 };
 
-export function generatePuzzle({ seed = 1, difficulty = 'medium', n = DIFFICULTY[difficulty].n } = {}) {
-  const rng = new Rng(`murdoku:${seed}:${n}:${difficulty}`);
-  const target = DIFFICULTY[difficulty];
+// The Manor keeps its original seed string so existing cases (and saved progress) never change.
+export function generatePuzzle({ seed = 1, difficulty = 'medium', theme = 'manor', n = DIFFICULTY[difficulty].n } = {}) {
+  const T = THEMES[theme];
+  const rules = T.rules[difficulty] || {};
+  const rng = new Rng(theme === 'manor' ? `murdoku:${seed}:${n}:${difficulty}` : `murdoku:${theme}:${seed}:${n}:${difficulty}`);
+  const target = { ...DIFFICULTY[difficulty], ...(T.targets?.[difficulty] || {}) };
   for (let attempt = 0; attempt < 200; attempt++) {
-    const p = makeLayout(rng, n);
+    const p = makeLayout(rng, n, T, rules);
     if (!p) continue;
-    if (chooseClues(rng, p, target)) {
+    if (chooseClues(rng, p, target, rules)) {
       p.seed = seed;
       p.difficulty = difficulty;
+      p.theme = theme;
+      p.rules = rules;
       p.attempts = attempt + 1;
-      dressCase(rng, p);
+      dressCase(rng, p, T);
       return p;
     }
   }
   // Never leave a player without a case: fall back to an easier target with the same seed.
-  if (difficulty === 'hard') return { ...generatePuzzle({ seed, n, difficulty: 'medium' }), difficulty };
-  if (difficulty === 'medium') return { ...generatePuzzle({ seed, n, difficulty: 'easy' }), difficulty };
+  if (difficulty === 'hard') return { ...generatePuzzle({ seed, n, theme, difficulty: 'medium' }), difficulty };
+  if (difficulty === 'medium') return { ...generatePuzzle({ seed, n, theme, difficulty: 'easy' }), difficulty };
   throw new Error(`Could not generate puzzle for seed ${seed}`);
 }
 
-function makeLayout(rng, n) {
+function makeLayout(rng, n, T = THEMES.manor, rules = {}) {
+  const ROOM_TYPES = T.rooms;
   const k = n <= 5 ? rng.range(3, 4) : n === 6 ? rng.range(4, 5) : rng.range(5, 6);
   const grid = makeAreas(rng, n, k);
   const areaCount = Math.max(...grid) + 1;
@@ -50,7 +56,7 @@ function makeLayout(rng, n) {
   const indoor = rng.shuffle(ROOM_TYPES.filter((t) => !t.outdoor));
   const types = [];
   for (let a = 0; a < areaCount; a++) types.push(indoor[a]);
-  if (hasGarden) {
+  if (hasGarden && ROOM_TYPES.some((t) => t.outdoor)) {
     // the garden prefers an area on the top edge
     const top = [...new Set(grid.slice(0, n))];
     types[rng.pick(top)] = ROOM_TYPES.find((t) => t.outdoor);
@@ -73,6 +79,9 @@ function makeLayout(rng, n) {
   if (!victimCandidates.length) return null;
   const v = rng.pick(victimCandidates);
   const murderer = solution.findIndex((i, k) => k !== v && areaOf(i) === areaOf(solution[v]));
+  // Hollow Hill: one non-victim is a ghost, usually found inside a piece of furniture
+  const ghostK = rules.ghost ? rng.pick(solution.map((_, k) => k).filter((k) => k !== v)) : -1;
+  const ghostCell = ghostK >= 0 ? solution[ghostK] : -1;
 
   // Furniture
   const occupied = new Set(solution);
@@ -80,7 +89,10 @@ function makeLayout(rng, n) {
     const t = types[area];
     const palette = Object.entries(t.objects);
     let obj = null;
-    if (occupied.has(i)) {
+    if (i === ghostCell) {
+      const blockers = palette.filter(([o]) => !OBJECTS[o].occupiable);
+      if (blockers.length && rng.chance(0.8)) obj = rng.weighted(blockers);
+    } else if (occupied.has(i)) {
       const seats = palette.filter(([o]) => OBJECTS[o].occupiable);
       if (seats.length && rng.chance(0.6)) obj = rng.weighted(seats);
     } else if (rng.chance(0.42)) {
@@ -92,12 +104,15 @@ function makeLayout(rng, n) {
   // Every row and column must still have room for someone, otherwise the layout is degenerate.
   const p = { n, cells, areas, people: [], solution: [], victim: -1, murderer: -1 };
 
+  if (rules.teleporters && !placePads(rng, p)) return null;
+
   const order = rng.shuffle([...Array(n).keys()]);
-  const cast = makeCast(rng, n);
+  const cast = T.cast === 'alien' ? makeAlienCast(rng, n, T) : makeCast(rng, n);
   order.forEach((k, idx) => {
     const person = cast[idx];
     person.isVictim = k === v;
     person.clues = [];
+    if (k === ghostK) makeGhost(rng, person, cast);
     p.people.push(person);
     p.solution.push(solution[k]);
     if (k === v) p.victim = idx;
@@ -156,6 +171,42 @@ function makeAreas(rng, n, k) {
 
 const key = (a, b) => (a < b ? `${a},${b}` : `${b},${a}`);
 
+// Zeta-9: one pair of linked teleporter pads on empty floor, in different rooms, well apart.
+function placePads(rng, p) {
+  const n = p.n;
+  const empty = p.cells.map((c, i) => i).filter((i) => !p.cells[i].obj);
+  for (let t = 0; t < 40; t++) {
+    const a = rng.pick(empty), b = rng.pick(empty);
+    const dist = Math.abs(Math.floor(a / n) - Math.floor(b / n)) + Math.abs((a % n) - (b % n));
+    if (a === b || p.cells[a].area === p.cells[b].area || dist < 3) continue;
+    p.cells[a].pad = 0;
+    p.cells[b].pad = 0;
+    return true;
+  }
+  return false;
+}
+
+function makeAlienCast(rng, n, T) {
+  const roles = rng.shuffle(T.roles).slice(0, n);
+  const alienInit = new Set(), earthInit = new Set();
+  return roles.map((role, idx) => {
+    const alienName = rng.shuffle(ALIEN_NAMES).find((nm) => !alienInit.has(nm[0]));
+    alienInit.add(alienName[0]);
+    const earthName = rng.shuffle(EARTH_NAMES).find((nm) => !earthInit.has(nm[0]));
+    earthInit.add(earthName[0]);
+    return {
+      id: idx, name: alienName, initial: alienName[0], alienName, alienInitial: alienName[0], earthName,
+      earthInitial: earthName[0], gender: 'x', species: 'alien', role: role.id, title: role.title, lookSeed: rng.int(1e9),
+    };
+  });
+}
+
+function makeGhost(rng, person, cast) {
+  const used = new Set(cast.filter((c) => c !== person).map((c) => c.initial));
+  const name = rng.shuffle(GHOST_NAMES).find((nm) => !used.has(nm[0])) || person.name;
+  Object.assign(person, { ghost: true, name, initial: name[0], role: 'ghost', title: 'the Ghost' });
+}
+
 function makeCast(rng, n) {
   const roles = rng.shuffle(ROLES).slice(0, n);
   const initials = new Set();
@@ -167,14 +218,15 @@ function makeCast(rng, n) {
   });
 }
 
-function chooseClues(rng, p, target) {
+function chooseClues(rng, p, target, rules = {}) {
+  if (rules.telepathy || rules.impostor) return chooseThemedClues(rng, p, target, rules);
   const options = p.people.map((person, k) => {
     if (person.isVictim) return [];
     // easy cases stick to statements about the room and its furniture
     const allowed = ([c]) => c.type !== 'rel' || (target.relMax > 0 && (target.vague || isExact(c)));
     return trueCluesFor(p, k).filter(allowed).map(([c, w]) => {
       // avoid statements that point straight at a single square
-      if (ownDomainSize(p, c) === 1) w *= 0.5;
+      if (ownDomainSize(p, c, person.ghost ? k : null) === 1) w *= 0.5;
       return [c, w];
     });
   });
@@ -211,17 +263,116 @@ function chooseClues(rng, p, target) {
 }
 
 const isExact = (c) => c.rel.length === 2 || c.rel === 'diag';
+
+// The same puzzle with person L's statements taken as lies.
+export function withLiar(p, L) {
+  return { ...p, people: p.people.map((pr, k) => (k === L ? { ...pr, clues: pr.clues.map((c) => ({ ...c, neg: true })) } : pr)) };
+}
+
+// Zeta-9: every suspect describes someone else (telepathy); on Hard one of them is a human
+// impostor whose statement is false. The answer must be unique across every choice of liar,
+// and each wrong choice must fall apart under plain logic.
+function chooseThemedClues(rng, p, target, rules) {
+  const suspects = p.people.map((pr, k) => k).filter((k) => !p.people[k].isVictim);
+  const allowed = ([c]) => (c.type !== 'rel' || (target.relMax > 0 && (target.vague || isExact(c))))
+    && !(rules.impostor && (c.type === 'onlyIn' || c.type === 'onlyOn'));
+  const optionsFor = suspects.reduce((m, s) => {
+    m[s] = trueCluesFor(p, s).filter(allowed).map(([c, w]) => [c, ownDomainSize(p, c) === 1 ? w * 0.5 : w]);
+    return m;
+  }, {});
+  // false statements the impostor could make about a subject: things true of someone else
+  const lieFor = (speaker, subj) => {
+    const pool = [];
+    for (const m of suspects) {
+      if (m === subj) continue;
+      for (const [c, w] of optionsFor[m]) {
+        if (c.type === 'rel' && c.who === subj) continue;
+        const lie = { ...c, about: subj };
+        if (!clueHolds(p, speaker, lie, p.solution)) pool.push([lie, w]);
+      }
+    }
+    return pool;
+  };
+
+  for (let tries = 0; tries < 160; tries++) {
+    const subjects = derangement(rng, suspects);
+    if (!subjects) continue;
+    let relLeft = target.relMax;
+    const pick = (opts) => {
+      const usable = opts.filter(([c]) => c.type !== 'rel' || relLeft > 0);
+      if (!usable.length && !opts.length) return null;
+      const c = rng.weighted(usable.length ? usable : opts);
+      if (c.type === 'rel') relLeft--;
+      return c;
+    };
+    let ok = true;
+    suspects.forEach((s, idx) => {
+      const subj = subjects[idx];
+      const c = pick(optionsFor[subj]);
+      if (!c) ok = false;
+      p.people[s].clues = c ? [{ ...c, about: subj }] : [];
+    });
+    p.people.forEach((pr) => { if (pr.isVictim) pr.clues = []; });
+    if (!ok || relLeft < 0) continue;
+    let liar = -1;
+    if (rules.impostor) {
+      // The honest statements alone must settle the case: the liar's would-be true statement
+      // is told by another (honest) suspect instead, and the liar adds a lie on top.
+      liar = rng.pick(suspects);
+      const moved = p.people[liar].clues[0];
+      const helper = rng.pick(suspects.filter((x) => x !== liar && x !== moved.about));
+      p.people[helper].clues.push(moved);
+      const lieSubj = rng.pick(suspects.filter((x) => x !== liar));
+      const lies = lieFor(liar, lieSubj);
+      if (!lies.length) continue;
+      p.people[liar].clues = [rng.weighted(lies)];
+    }
+    if (tries >= 100) {
+      const k = rng.pick(suspects.filter((s) => s !== liar));
+      const subj = rng.pick(suspects.filter((s) => s !== k));
+      const extra = pick(optionsFor[subj]);
+      if (extra) p.people[k].clues.push({ ...extra, about: subj });
+    }
+    const truth = liar >= 0 ? withLiar(p, liar) : p;
+    if (countSolutions(truth, 2).count !== 1) continue;
+    if (liar >= 0) {
+      // every wrong suspicion must have no answer, and collapse under plain logic,
+      // so a human can unmask the liar
+      const wrong = suspects.filter((L) => L !== liar);
+      if (!wrong.every((L) => logicalSolve(withLiar(p, L)).contradiction)) continue;
+      if (!wrong.every((L) => countSolutions(withLiar(p, L), 1).count === 0)) continue;
+    }
+    const rating = logicalSolve(truth);
+    if (!rating.solved && target.maxLevel < 3) continue;
+    if (rating.level > target.maxLevel || rating.level < target.minLevel) continue;
+    if (rating.initialSingles > target.maxInitialSingles) continue;
+    p.impostor = liar;
+    p.rating = { level: rating.level, used: rating.used, initialSingles: rating.initialSingles };
+    p.deduction = rating.order.map((o) => o.person);
+    return true;
+  }
+  return false;
+}
+
+// Each suspect describes a different suspect, never themselves.
+function derangement(rng, xs) {
+  for (let t = 0; t < 30; t++) {
+    const ys = rng.shuffle(xs);
+    if (ys.every((y, i) => y !== xs[i])) return ys;
+  }
+  return null;
+}
 const sameClue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-function dressCase(rng, p) {
+function dressCase(rng, p, T = THEMES.manor) {
   const victim = p.people[p.victim];
-  const estate = rng.pick(ESTATES);
+  const estate = rng.pick(T.places);
   const fill = (s) => s
     .replace('{estate}', estate)
     .replace('{victim}', victim.name)
     .replace('{vrole}', victim.title)
     .replace('{count}', String(p.people.length - 1));
   p.estate = estate;
-  p.headline = fill(rng.pick(HEADLINES));
-  p.lede = fill(rng.pick(LEDES));
+  p.headline = fill(rng.pick(T.headlines));
+  p.lede = fill(rng.pick(T.ledes));
 }

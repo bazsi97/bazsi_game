@@ -1,15 +1,15 @@
 <!doctype html><meta charset="utf-8"><link rel="stylesheet" href="../css/style.css">
-<style>body{padding:12px}#g{display:grid;grid-template-columns:repeat(6,160px);gap:10px}#g div{border:2px solid var(--ink);background:var(--paper-2)}#g svg{width:100%;display:block}#o{display:grid;grid-template-columns:repeat(11,100px);gap:6px;margin-top:12px}#o svg{width:100px;height:100px;background:var(--paper);border:1px solid #0002}</style>
-<div id="g"></div><div id="o"></div>
+<style>body{padding:12px}.g{display:grid;grid-template-columns:repeat(6,150px);gap:10px;margin-bottom:14px}.g div{border:2px solid var(--ink);background:var(--paper-2)}.g svg{width:100%;display:block}.o{display:grid;grid-template-columns:repeat(12,90px);gap:6px;margin-top:12px}.o svg{width:90px;height:90px;background:var(--paper);border:1px solid #0002}
+.pad-ring{fill:none;stroke:var(--ink);stroke-width:3;stroke-dasharray:6 5}.pad-ring2{fill:none;stroke:var(--ink);stroke-width:2}.pad-bolt{fill:var(--ink)}</style>
+<h3>Aliens</h3><div class="g" id="aliens"></div><h3>Ghost + humans</h3><div class="g" id="g"></div><div class="o" id="o"></div>
 <script type="module">
-import { portraitSvg, patternDefsSvg, objectSvg } from '../js/art.js';
+import { portraitSvg, patternDefsSvg, objectSvg, padSvg } from '../js/art.js';
 import { ROLES, OBJECTS } from '../js/themes.js';
 document.body.insertAdjacentHTML('afterbegin', patternDefsSvg());
-const g = document.getElementById('g');
-let i = 0;
-for (const r of ROLES) for (const s of [1, 2]) {
-  const gender = r.gender === 'any' ? (s === 1 ? 'f' : 'm') : r.gender;
-  g.insertAdjacentHTML('beforeend', `<div>${portraitSvg({ role: r.id, gender, lookSeed: 1000 + i++ }, { dead: i === 3 })}</div>`);
-}
-document.getElementById('o').innerHTML = Object.keys(OBJECTS).map(o => `<svg class="art" viewBox="0 0 100 100">${objectSvg(o)}</svg>`).join('');
+const inks = ['#1f5fa8', '#2e7d32', '#c25e00', '#7b3fa0', '#00838f', '#ad1457'];
+const tint = (c) => c + '30';
+document.getElementById('aliens').innerHTML = [...Array(12).keys()].map((i) => `<div>${portraitSvg({ species: 'alien', lookSeed: 500 + i * 7 }, { color: inks[i % 6], tint: tint(inks[i % 6]), dead: i === 11 })}</div>`).join('');
+document.getElementById('g').innerHTML = [`<div>${portraitSvg({ ghost: true, gender: 'f', lookSeed: 1 }, { color: '#7b3fa0', tint: '#7b3fa030' })}</div>`]
+  .concat(ROLES.slice(0, 5).map((r, i) => `<div>${portraitSvg({ role: r.id, gender: r.gender === 'any' ? 'f' : r.gender, lookSeed: 900 + i }, { color: inks[i], tint: tint(inks[i]) })}</div>`)).join('');
+document.getElementById('o').innerHTML = Object.keys(OBJECTS).map((o) => `<svg class="art" viewBox="0 0 100 100">${objectSvg(o)}</svg>`).join('') + `<svg class="art" viewBox="0 0 100 100">${padSvg()}</svg>`;
 </script>

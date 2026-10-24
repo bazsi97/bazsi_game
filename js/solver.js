@@ -3,7 +3,7 @@
 //  - logicalSolve: solves like a human would, technique by technique, used to RATE difficulty
 //    and to give hints in a sensible order.
 
-import { domainFor, relationsOf, CLUES } from './clues.js';
+import { domainFor, relationsOf, relHolds } from './clues.js';
 
 export function victimIndex(p) {
   return p.people.findIndex((x) => x.isVictim);
@@ -47,7 +47,7 @@ export function countSolutions(p, limit = 2) {
       if (rowUsed[r] || colUsed[c]) continue;
       pos[k] = i;
       const ok = relsBy[k].every((x) => pos[x.k] == null || pos[x.who] == null
-        || CLUES.rel.rel(p, x.clue, pos[x.k], pos[x.who]));
+        || relHolds(p, x.clue, pos[x.k], pos[x.who]));
       if (ok) {
         rowUsed[r] = colUsed[c] = true;
         rec(d + 1);
@@ -197,7 +197,7 @@ export function logicalSolve(p, { fixed = null, log = null } = {}) {
   function relations() {
     for (const { k, who, clue } of rels) {
       const easy = placed[k] || placed[who];
-      const compatible = (x, y) => x !== y && lines.every((L) => L(x) !== L(y)) && CLUES.rel.rel(p, clue, x, y);
+      const compatible = (x, y) => x !== y && lines.every((L) => L(x) !== L(y)) && relHolds(p, clue, x, y);
       why = { tech: 'relation', owner: k, other: who, clue };
       let ch = removeWhere(k, (x) => ![...cand[who]].some((y) => compatible(x, y)));
       ch = removeWhere(who, (y) => ![...cand[k]].some((x) => compatible(x, y))) || ch;
@@ -213,7 +213,9 @@ export function logicalSolve(p, { fixed = null, log = null } = {}) {
   }
 
   const solved = placed.every(Boolean) && cand.every((s) => s.size === 1);
-  return { solved, level: solved ? maxLevel : 3, used, order, initialSingles };
+  const contradiction = cand.some((s) => s.size === 0);
+  const stuck = cand.findIndex((s) => s.size === 0);
+  return { solved, level: solved ? maxLevel : 3, used, order, initialSingles, contradiction, stuck };
 }
 
 function combos(arr, k, start = 0, acc = [], out = []) {

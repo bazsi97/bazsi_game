@@ -6,6 +6,12 @@
 //   rel(p, c, i, j)     - owner on i, the referenced person (c.who) on j: does it hold?
 // plus text(p, c, he) for the statement shown on the card.
 // North is the top of the board.
+//
+// Theme extras (all optional, absent in the Manor):
+//   clue.about = j   telepathy: the statement describes person j, not the speaker
+//   clue.neg = true  the statement is false (the Zeta-9 impostor's lie)
+//   person.ghost     the ghost may stand inside furniture nobody else can occupy
+//   cell.pad = id    teleporter pads: standing on one counts as beside what surrounds its twin
 
 import { OBJECTS } from './themes.js';
 
@@ -16,6 +22,12 @@ export function isFree(p, i) {
   const o = p.cells[i].obj;
   return !o || OBJECTS[o].occupiable;
 }
+
+// Can person k stand on cell i? (ghosts drift inside furniture)
+export const canStand = (p, k, i) => isFree(p, i) || !!p.people[k]?.ghost;
+
+// Who a statement is about: the speaker, unless it was sensed telepathically about someone else.
+export const subjectOf = (k, clue) => clue.about ?? k;
 
 export function neighbours(p, i) {
   const r = rowOf(p, i), c = colOf(p, i), out = [];
@@ -29,8 +41,16 @@ export function neighbours(p, i) {
 // "beside" = directly above/below/left/right AND in the same area (book rule).
 export function besideKinds(p, i) {
   const kinds = new Set();
-  for (const j of neighbours(p, i)) {
-    if (p.cells[j].area === p.cells[i].area && p.cells[j].obj) kinds.add(p.cells[j].obj);
+  const look = (x) => {
+    for (const j of neighbours(p, x)) {
+      if (p.cells[j].area === p.cells[x].area && p.cells[j].obj) kinds.add(p.cells[j].obj);
+    }
+  };
+  look(i);
+  const pad = p.cells[i].pad;
+  if (pad != null) {
+    const twin = p.cells.findIndex((c, j) => j !== i && c.pad === pad);
+    if (twin >= 0) look(twin);
   }
   return kinds;
 }
@@ -43,7 +63,8 @@ function lineHas(p, i, kind, byRow) {
   return false;
 }
 
-const name = (p, c) => `<b class="who" data-who="${c.who}">${p.people[c.who].name}</b>`;
+const whoHtml = (p, k) => `<b class="who" data-who="${k}">${p.people[k].name}</b>`;
+const name = (p, c) => whoHtml(p, c.who);
 const objName = (c) => `<b>${OBJECTS[c.obj].name}</b>`;
 
 const EDGES = {
@@ -71,7 +92,7 @@ export const RELATIONS = {
 export const CLUES = {
   on: {
     own: (p, c, i) => p.cells[i].obj === c.obj,
-    text: (p, c, he) => `${he} was ${OBJECTS[c.obj].onText.replace('{a}', article(p, c.obj))}.`,
+    text: (p, c, he) => `${he} was ${(OBJECTS[c.obj].onText || `drifting inside {a} <b>${OBJECTS[c.obj].name}</b>`).replace('{a}', article(p, c.obj))}.`,
   },
   beside: {
     own: (p, c, i) => besideKinds(p, i).has(c.obj),
@@ -118,49 +139,68 @@ function article(p, kind) {
   return count === 1 ? 'the' : 'a';
 }
 
+const PRONOUN = { f: 'She', m: 'He', x: 'It' };
+
 export function clueText(p, person, clue) {
-  const he = person.gender === 'f' ? 'She' : 'He';
-  return CLUES[clue.type].text(p, clue, he);
+  if (clue.about != null) return `<i>Sensed:</i> ${CLUES[clue.type].text(p, clue, whoHtml(p, clue.about))}`;
+  return CLUES[clue.type].text(p, clue, PRONOUN[person.gender] || 'They');
 }
 
-// Does a clue (owned by person k) hold in a full placement `pos`?
+// Single-cell test for the statement's subject, honouring a lie.
+export const ownHolds = (p, clue, i) => CLUES[clue.type].own(p, clue, i) !== !!clue.neg;
+export const relHolds = (p, clue, i, j) => CLUES.rel.rel(p, clue, i, j) !== !!clue.neg;
+
+// Does a clue (spoken by person k) hold in a full placement `pos`?
 export function clueHolds(p, k, clue, pos) {
   const T = CLUES[clue.type];
-  if (T.own && !T.own(p, clue, pos[k])) return false;
-  if (T.others && pos.some((i, j) => j !== k && !T.others(p, clue, i))) return false;
-  if (T.rel && !T.rel(p, clue, pos[k], pos[clue.who])) return false;
-  return true;
+  const s = subjectOf(k, clue);
+  let ok = true;
+  if (T.own && !T.own(p, clue, pos[s])) ok = false;
+  if (T.others && pos.some((i, j) => j !== s && !T.others(p, clue, i))) ok = false;
+  if (T.rel && !T.rel(p, clue, pos[s], pos[clue.who])) ok = false;
+  return ok !== !!clue.neg;
 }
 
-// Binary constraints between two people: [{ k, who, clue }]
+// Every statement about person k, whoever said it.
+export function cluesAbout(p, k) {
+  const out = [];
+  p.people.forEach((pr, j) => pr.clues.forEach((c) => { if (subjectOf(j, c) === k) out.push(c); }));
+  return out;
+}
+
+// Binary constraints between two people: [{ k, who, clue }], k being the statement's subject
 export function relationsOf(p) {
   const out = [];
-  p.people.forEach((pr, k) => pr.clues.forEach((c) => { if (CLUES[c.type].rel) out.push({ k, who: c.who, clue: c }); }));
+  p.people.forEach((pr, k) => pr.clues.forEach((c) => {
+    if (CLUES[c.type].rel) out.push({ k: subjectOf(k, c), who: c.who, clue: c });
+  }));
   return out;
 }
 
 // Cells person k could occupy given every single-cell constraint in the puzzle
-// (their own clues, plus anyone's "only one" clues that keep others out).
+// (statements about them, plus anyone's "only one" statements that keep others out).
 export function domainFor(p, k) {
-  const own = p.people[k].clues;
+  const own = cluesAbout(p, k).filter((c) => CLUES[c.type].own);
   const others = [];
-  p.people.forEach((pr, j) => { if (j !== k) for (const c of pr.clues) if (CLUES[c.type].others) others.push(c); });
+  p.people.forEach((pr, j) => {
+    for (const c of pr.clues) if (CLUES[c.type].others && subjectOf(j, c) !== k) others.push(c);
+  });
   const out = [];
   for (let i = 0; i < p.n * p.n; i++) {
-    if (!isFree(p, i)) continue;
-    if (!own.every((c) => !CLUES[c.type].own || CLUES[c.type].own(p, c, i))) continue;
+    if (!canStand(p, k, i)) continue;
+    if (!own.every((c) => ownHolds(p, c, i))) continue;
     if (!others.every((c) => CLUES[c.type].others(p, c, i))) continue;
     out.push(i);
   }
   return out;
 }
 
-// How many cells a single clue alone allows for its owner (used to weight clue choice).
-export function ownDomainSize(p, clue) {
+// How many cells a single clue alone allows for its subject (used to weight clue choice).
+export function ownDomainSize(p, clue, k = null) {
   const T = CLUES[clue.type];
   if (!T.own) return p.n * p.n;
   let s = 0;
-  for (let i = 0; i < p.n * p.n; i++) if (isFree(p, i) && T.own(p, clue, i)) s++;
+  for (let i = 0; i < p.n * p.n; i++) if ((k == null ? isFree(p, i) : canStand(p, k, i)) && T.own(p, clue, i)) s++;
   return s;
 }
 
@@ -174,6 +214,8 @@ export function trueCluesFor(p, k) {
   if (o && OBJECTS[o].occupiable) {
     add({ type: 'on', obj: o }, 2.5);
     if (!sol.some((j, m) => m !== k && p.cells[j].obj === o)) add({ type: 'onlyOn', obj: o }, 1.2);
+  } else if (o && p.people[k].ghost) {
+    add({ type: 'on', obj: o }, 3); // "drifting inside the wardrobe"
   }
   for (const kind of besideKinds(p, i)) if (kind !== 'rug') add({ type: 'beside', obj: kind }, 2.5);
   const area = p.cells[i].area;
