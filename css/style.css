@@ -424,6 +424,8 @@ h2, h3, h4, p { margin: 0; }
 
 /* ---------- the key: what every object on the scene is called ---------- */
 .legend { display: grid; gap: 5px; width: 100%; max-width: 640px; }
+.key-slot { margin-top: 16px; }
+.key-slot[hidden] { display: none; }
 .legend-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .legend-label { font-family: var(--hand); font-size: 0.86rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); margin-right: 2px; }
 .chip {

@@ -212,7 +212,13 @@ const ok = (cond, msg) => { if (!cond) failures++; console.log(cond ? 'PASS' : '
     await open(p, 'egypt-easy-1');
     const g = await gen(p, 'egypt', 'easy', 1, 2);
     ok(await count(p, '.alibi') === g.people - 1, 'Egypt easy: one alibi per mask');
-    ok(await count(p, '.legend .chip') > 3 && await count(p, '.clue .mini') > 0, 'Egypt easy: a key under the board, and pictures inside the statements');
+    ok(await count(p, '.legend .chip') > 3 && await count(p, '.clue .mini') > 0, 'Egypt easy: a key, and pictures inside the statements');
+    ok(await count(p, '.dossier .key-slot .legend') === 1 && await count(p, '.board-wrap .legend') === 0
+      && await p.evaluate(() => document.querySelector('.cards').getBoundingClientRect().top - document.querySelector('.board').getBoundingClientRect().bottom) < 70,
+      'Phone: the key sits below the suspects, and the suspects start right under the board');
+    await p.setViewportSize({ width: 1024, height: 768 }); await p.waitForTimeout(150);
+    ok(await count(p, '.board-wrap .legend') === 1 && await p.locator('.key-slot').isHidden(), 'Tablet: the key moves under the board');
+    await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(150);
     await p.locator('.legend .chip').first().click(); await p.waitForTimeout(150);
     ok(await count(p, '.legend-hi') > 0 && await count(p, '.chip.on') === 1, 'Egypt easy: tapping a key entry lights those objects up');
     await shot(p, 'e2e-legend', true);

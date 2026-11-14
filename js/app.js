@@ -394,13 +394,14 @@ function renderPage() {
             <p class="rule-line">${ruleLine()}${twist ? ` ${twist}` : ''}</p>
           </div>
         </section>
-        <section class="board-wrap">${names}<div class="accuse-slot"></div>${boardSvg()}${legendHtml()}</section>
+        <section class="board-wrap">${names}<div class="accuse-slot"></div>${boardSvg()}</section>
         <section class="dossier">
           <h3 class="section-title">${P.unmask ? 'The masks' : 'The suspects'}</h3>
           <div class="cards">${P.people.map(cardHtml).join('')}</div>
           ${P.unmask ? `<h3 class="section-title">The alibis</h3>
             <p class="alibi-note">Each of these people wore one of the masks. Their alibi is true of the square that mask stood on.</p>
             <div class="alibis">${P.unmask.suspects.map(alibiHtml).join('')}</div>` : ''}
+          <div class="key-slot"><h3 class="section-title">The key</h3>${legendHtml()}</div>
         </section>
       </main>
     </div>
@@ -415,9 +416,21 @@ function renderPage() {
         <button class="tool" data-act="rules">${ICONS.rules}Rules</button>
       </div>
     </nav>`;
+  placeLegend();
   renderDynamic();
   setStatus(defaultStatus());
 }
+
+// The key sits under the board where the board has a column of its own (tablets), and below
+// the suspects on a phone, where it would otherwise push them a long scroll away from the board.
+const WIDE = matchMedia('(min-width: 880px)');
+function placeLegend() {
+  const key = $('.legend'), slot = $('.key-slot'), wrap = $('.board-wrap');
+  if (!key || !slot || !wrap) return;
+  (WIDE.matches ? wrap : slot).append(key);
+  slot.hidden = WIDE.matches;
+}
+WIDE.addEventListener('change', placeLegend);
 
 // On a card "the Jackal" is simply "Jackal".
 const shortName = (person) => cap(person.masked ? person.name.replace(/^the /, '') : person.name);
