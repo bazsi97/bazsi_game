@@ -12,29 +12,37 @@
 //   clue.neg = true  the statement is false (the Zeta-9 impostor's lie)
 //   person.ghost     the ghost may stand inside furniture nobody else can occupy
 //   cell.pad = id    teleporter pads: standing on one counts as beside what surrounds its twin
+//
+// Boards: p.w x p.h cells (older puzzles only carry p.n for both). cell.void marks squares that
+// are not part of the board at all (the corners cut off a pyramid, the notch of an L-shape).
 
 import { OBJECTS } from './themes.js';
 
-export const rowOf = (p, i) => Math.floor(i / p.n);
-export const colOf = (p, i) => i % p.n;
+export const widthOf = (p) => p.w ?? p.n;
+export const heightOf = (p) => p.h ?? p.n;
+export const cellCount = (p) => widthOf(p) * heightOf(p);
+export const rowOf = (p, i) => Math.floor(i / widthOf(p));
+export const colOf = (p, i) => i % widthOf(p);
 
 export function isFree(p, i) {
+  if (p.cells[i].void) return false;
   const o = p.cells[i].obj;
   return !o || OBJECTS[o].occupiable;
 }
 
 // Can person k stand on cell i? (ghosts drift inside furniture)
-export const canStand = (p, k, i) => isFree(p, i) || !!p.people[k]?.ghost;
+export const canStand = (p, k, i) => isFree(p, i) || (!!p.people[k]?.ghost && !p.cells[i].void);
 
 // Who a statement is about: the speaker, unless it was sensed telepathically about someone else.
 export const subjectOf = (k, clue) => clue.about ?? k;
 
 export function neighbours(p, i) {
+  const w = widthOf(p), h = heightOf(p);
   const r = rowOf(p, i), c = colOf(p, i), out = [];
-  if (r > 0) out.push(i - p.n);
-  if (r < p.n - 1) out.push(i + p.n);
+  if (r > 0) out.push(i - w);
+  if (r < h - 1) out.push(i + w);
   if (c > 0) out.push(i - 1);
-  if (c < p.n - 1) out.push(i + 1);
+  if (c < w - 1) out.push(i + 1);
   return out;
 }
 
@@ -56,22 +64,25 @@ export function besideKinds(p, i) {
 }
 
 function lineHas(p, i, kind, byRow) {
-  for (let k = 0; k < p.n; k++) {
-    const j = byRow ? rowOf(p, i) * p.n + k : k * p.n + colOf(p, i);
+  const w = widthOf(p);
+  const len = byRow ? w : heightOf(p);
+  for (let k = 0; k < len; k++) {
+    const j = byRow ? rowOf(p, i) * w + k : k * w + colOf(p, i);
     if (j !== i && p.cells[j].obj === kind) return true;
   }
   return false;
 }
 
 const whoHtml = (p, k) => `<b class="who" data-who="${k}">${p.people[k].name}</b>`;
+const capFirst = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 const name = (p, c) => whoHtml(p, c.who);
 const objName = (c) => `<b>${OBJECTS[c.obj].name}</b>`;
 
 const EDGES = {
   top: { test: (p, i) => rowOf(p, i) === 0, text: 'in the <b>top row</b>' },
-  bottom: { test: (p, i) => rowOf(p, i) === p.n - 1, text: 'in the <b>bottom row</b>' },
+  bottom: { test: (p, i) => rowOf(p, i) === heightOf(p) - 1, text: 'in the <b>bottom row</b>' },
   left: { test: (p, i) => colOf(p, i) === 0, text: 'in the <b>leftmost column</b>' },
-  right: { test: (p, i) => colOf(p, i) === p.n - 1, text: 'in the <b>rightmost column</b>' },
+  right: { test: (p, i) => colOf(p, i) === widthOf(p) - 1, text: 'in the <b>rightmost column</b>' },
 };
 
 export const RELATIONS = {
@@ -134,16 +145,19 @@ export const CLUES = {
   },
 };
 
+// "the bed" when there is only one of them; a two-square bed still counts once.
 function article(p, kind) {
-  const count = p.cells.filter((c) => c.obj === kind).length;
-  return count === 1 ? 'the' : 'a';
+  const singles = p.cells.filter((c) => c.obj === kind && c.piece == null).length;
+  const pieces = (p.pieces || []).filter((x) => x.kind === kind).length;
+  return singles + pieces === 1 ? 'the' : /^[aeiou]/.test(OBJECTS[kind].name) ? 'an' : 'a';
 }
 
 const PRONOUN = { f: 'She', m: 'He', x: 'It' };
 
 export function clueText(p, person, clue) {
   if (clue.about != null) return `<i>Sensed:</i> ${CLUES[clue.type].text(p, clue, whoHtml(p, clue.about))}`;
-  return CLUES[clue.type].text(p, clue, PRONOUN[person.gender] || 'They');
+  // masked figures have no pronoun: "The Jackal was beside an urn."
+  return CLUES[clue.type].text(p, clue, person.masked ? capFirst(person.name) : PRONOUN[person.gender] || 'They');
 }
 
 // Single-cell test for the statement's subject, honouring a lie.
@@ -186,7 +200,7 @@ export function domainFor(p, k) {
     for (const c of pr.clues) if (CLUES[c.type].others && subjectOf(j, c) !== k) others.push(c);
   });
   const out = [];
-  for (let i = 0; i < p.n * p.n; i++) {
+  for (let i = 0; i < cellCount(p); i++) {
     if (!canStand(p, k, i)) continue;
     if (!own.every((c) => ownHolds(p, c, i))) continue;
     if (!others.every((c) => CLUES[c.type].others(p, c, i))) continue;
@@ -198,9 +212,9 @@ export function domainFor(p, k) {
 // How many cells a single clue alone allows for its subject (used to weight clue choice).
 export function ownDomainSize(p, clue, k = null) {
   const T = CLUES[clue.type];
-  if (!T.own) return p.n * p.n;
+  if (!T.own) return cellCount(p);
   let s = 0;
-  for (let i = 0; i < p.n * p.n; i++) if ((k == null ? isFree(p, i) : canStand(p, k, i)) && T.own(p, clue, i)) s++;
+  for (let i = 0; i < cellCount(p); i++) if ((k == null ? isFree(p, i) : canStand(p, k, i)) && T.own(p, clue, i)) s++;
   return s;
 }
 

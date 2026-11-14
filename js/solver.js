@@ -3,7 +3,7 @@
 //  - logicalSolve: solves like a human would, technique by technique, used to RATE difficulty
 //    and to give hints in a sensible order.
 
-import { domainFor, relationsOf, relHolds } from './clues.js';
+import { domainFor, relationsOf, relHolds, widthOf, heightOf } from './clues.js';
 
 export function victimIndex(p) {
   return p.people.findIndex((x) => x.isVictim);
@@ -19,14 +19,14 @@ export function aloneOk(p, pos) {
 }
 
 export function countSolutions(p, limit = 2) {
-  const n = p.n;
+  const n = widthOf(p);
   const doms = p.people.map((_, k) => domainFor(p, k));
   // binary clues ("one row north of Hugo") are checked as soon as both people are placed
   const relsBy = p.people.map(() => []);
   for (const r of relationsOf(p)) { relsBy[r.k].push(r); relsBy[r.who].push(r); }
   const order = p.people.map((_, k) => k)
     .sort((a, b) => (p.people[a].isVictim - p.people[b].isVictim) || doms[a].length - doms[b].length);
-  const rowUsed = new Array(n).fill(false);
+  const rowUsed = new Array(heightOf(p)).fill(false);
   const colUsed = new Array(n).fill(false);
   const pos = new Array(p.people.length);
   let count = 0;
@@ -65,8 +65,11 @@ export function countSolutions(p, limit = 2) {
 //   fixed: [cell|null per person]  people already correctly on the board
 //   log:   []                       receives { place } and { k, cells, why } events in order
 export function logicalSolve(p, { fixed = null, log = null } = {}) {
-  const n = p.n;
+  const n = widthOf(p);
   const P = p.people.length;
+  // On a non-square board only the shorter direction is guaranteed to have someone in every line.
+  const lineCount = [heightOf(p), n];
+  const lineFull = [P === heightOf(p), P === n];
   const vi = victimIndex(p);
   const cand = p.people.map((_, k) => new Set(fixed?.[k] != null ? [fixed[k]] : domainFor(p, k)));
   const rels = relationsOf(p);
@@ -113,7 +116,9 @@ export function logicalSolve(p, { fixed = null, log = null } = {}) {
   // Each row/column holds exactly one person: if only one person can reach a line, they're in it.
   function hiddenLine() {
     for (const L of lines) {
-      for (let v = 0; v < n; v++) {
+      const axis = L === lines[0] ? 0 : 1;
+      if (!lineFull[axis]) continue;
+      for (let v = 0; v < lineCount[axis]; v++) {
         const holders = [];
         for (let k = 0; k < P; k++) if ([...cand[k]].some((x) => L(x) === v)) holders.push(k);
         why = { tech: 'line', axis: L === lines[0] ? 'row' : 'col', v, who: holders[0] };

@@ -3,27 +3,28 @@
 // and explain in plain words what rules out their other squares (without naming the square).
 
 import { logicalSolve, victimIndex } from './solver.js';
-import { domainFor, RELATIONS, CLUES, canStand, cluesAbout, ownHolds } from './clues.js';
+import { domainFor, RELATIONS, CLUES, canStand, cluesAbout, ownHolds, widthOf, heightOf, cellCount } from './clues.js';
 import { OBJECTS } from './themes.js';
 
 const ORD = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th'];
 
 export function lineName(p, axis, v) {
-  if (axis === 'row') return v === 0 ? 'the top row' : v === p.n - 1 ? 'the bottom row' : `the ${ORD[v]} row from the top`;
-  return v === 0 ? 'the leftmost column' : v === p.n - 1 ? 'the rightmost column' : `the ${ORD[v]} column from the left`;
+  if (axis === 'row') return v === 0 ? 'the top row' : v === heightOf(p) - 1 ? 'the bottom row' : `the ${ORD[v]} row from the top`;
+  return v === 0 ? 'the leftmost column' : v === widthOf(p) - 1 ? 'the rightmost column' : `the ${ORD[v]} column from the left`;
 }
 
 const plurals = (word) => (word.endsWith('shelf') ? word.replace(/shelf$/, 'shelves') : /(ch|sh|s)$/.test(word) ? `${word}es` : `${word}s`);
 const nameOf = (p, k) => (p.people[k].isVictim ? `${p.people[k].name} (the victim)` : p.people[k].name);
 const list = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const plural = (n, one, many) => (n === 1 ? one : many);
-const lineCells = (p, axis, v) => [...Array(p.n).keys()].map((t) => (axis === 'row' ? v * p.n + t : t * p.n + v));
+const lineCells = (p, axis, v) => [...Array(axis === 'row' ? widthOf(p) : heightOf(p)).keys()]
+  .map((t) => (axis === 'row' ? v * widthOf(p) + t : t * widthOf(p) + v)).filter((i) => !p.cells[i].void);
 
 // What does the person's own statement allow, before anything else is considered?
 function startText(p, t, size) {
   const person = p.people[t];
-  if (person.isVictim) return `The victim can be on any free square to begin with, ${size} of them.`;
   const about = cluesAbout(p, t);
+  if (person.isVictim && !about.length) return `The victim can be on any free square to begin with, ${size} of them.`;
   const kinds = about.map((c) => {
     const k = kindOf(p, c);
     return k && c.neg ? `not ${k}` : k;
@@ -63,7 +64,7 @@ export function explainNext(p, placed) {
 
   // Others' "only one" statements already shape the starting squares.
   const ownOnly = [];
-  for (let i = 0; i < p.n * p.n; i++) {
+  for (let i = 0; i < cellCount(p); i++) {
     if (canStand(p, t, i) && cluesAbout(p, t).every((c) => !CLUES[c.type].own || ownHolds(p, c, i))) ownOnly.push(i);
   }
   lines.push(startText(p, t, ownOnly.length));
@@ -85,7 +86,7 @@ export function explainNext(p, placed) {
         takenBy.add(why.who);
         break;
       case 'line':
-        lines.push(`Every row and column holds exactly one person. Nobody else can reach ${lineName(p, why.axis, why.v)}, so ${name} must be in it.`);
+        lines.push(`Every ${why.axis === 'row' ? 'row' : 'column'} holds exactly one person. Nobody else can reach ${lineName(p, why.axis, why.v)}, so ${name} must be in it.`);
         lineCells(p, why.axis, why.v).forEach((i) => marks.add(i));
         break;
       case 'pointing':
@@ -126,7 +127,9 @@ export function explainNext(p, placed) {
       `${list(names)} ${plural(names.length, 'already takes', 'already take')} up ${plural(names.length, 'a row and a column', 'their rows and columns')}, which crosses some of those out.`);
   }
   lines.push(`That leaves just one square for ${name}.`);
-  return { target: t, text: lines.join(' '), steps: lines, marks };
+  // names such as "the Jackal" may open a sentence
+  const steps = lines.map((t2) => t2.charAt(0).toUpperCase() + t2.slice(1));
+  return { target: t, text: steps.join(' '), steps, marks };
 }
 
 export { victimIndex };

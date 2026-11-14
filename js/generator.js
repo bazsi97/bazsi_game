@@ -11,6 +11,7 @@ import { Rng } from './rng.js';
 import { OBJECTS, INDOOR_PATTERNS, ROLES, NAMES, THEMES, ALIEN_NAMES, EARTH_NAMES, GHOST_NAMES } from './themes.js';
 import { trueCluesFor, ownDomainSize, clueHolds } from './clues.js';
 import { countSolutions, logicalSolve } from './solver.js';
+import { generatePuzzle2 } from './generator2.js';
 
 // relMax: how many person-to-person statements a case may use ("one row north of Hugo").
 // vague: whether the fuzzy ones ("somewhere north of Hugo") are allowed.
@@ -20,8 +21,22 @@ export const DIFFICULTY = {
   hard: { n: 6, maxLevel: 2, minLevel: 2, maxInitialSingles: 0, relMax: 3, vague: true },
 };
 
-// The Manor keeps its original seed string so existing cases (and saved progress) never change.
-export function generatePuzzle({ seed = 1, difficulty = 'medium', theme = 'manor', n = DIFFICULTY[difficulty].n } = {}) {
+// The newest recipe; cases nobody has started yet are made with it.
+export const CURRENT_GEN = 2;
+
+// `gen` picks the recipe. Recipe 1 is everything below and must never change its output:
+// saved cases made with it are regenerated from their number every time they are opened.
+// The Manor keeps its original seed string for the same reason.
+export function generatePuzzle({ seed = 1, difficulty = 'medium', theme = 'manor', gen = 1, n = DIFFICULTY[difficulty].n } = {}) {
+  if (gen >= 2 || (THEMES[theme].minGen || 1) >= 2) return generatePuzzle2({ seed, difficulty, theme });
+  const p = generatePuzzle1({ seed, difficulty, theme, n });
+  p.gen = 1;
+  p.w = p.n;
+  p.h = p.n;
+  return p;
+}
+
+function generatePuzzle1({ seed, difficulty, theme, n }) {
   const T = THEMES[theme];
   const rules = T.rules[difficulty] || {};
   const rng = new Rng(theme === 'manor' ? `murdoku:${seed}:${n}:${difficulty}` : `murdoku:${theme}:${seed}:${n}:${difficulty}`);
@@ -40,8 +55,8 @@ export function generatePuzzle({ seed = 1, difficulty = 'medium', theme = 'manor
     }
   }
   // Never leave a player without a case: fall back to an easier target with the same seed.
-  if (difficulty === 'hard') return { ...generatePuzzle({ seed, n, theme, difficulty: 'medium' }), difficulty };
-  if (difficulty === 'medium') return { ...generatePuzzle({ seed, n, theme, difficulty: 'easy' }), difficulty };
+  if (difficulty === 'hard') return { ...generatePuzzle1({ seed, n, theme, difficulty: 'medium' }), difficulty };
+  if (difficulty === 'medium') return { ...generatePuzzle1({ seed, n, theme, difficulty: 'easy' }), difficulty };
   throw new Error(`Could not generate puzzle for seed ${seed}`);
 }
 
@@ -186,7 +201,7 @@ function placePads(rng, p) {
   return false;
 }
 
-function makeAlienCast(rng, n, T) {
+export function makeAlienCast(rng, n, T) {
   const roles = rng.shuffle(T.roles).slice(0, n);
   const alienInit = new Set(), earthInit = new Set();
   return roles.map((role, idx) => {
@@ -201,7 +216,7 @@ function makeAlienCast(rng, n, T) {
   });
 }
 
-function makeGhost(rng, person, cast) {
+export function makeGhost(rng, person, cast) {
   const used = new Set(cast.filter((c) => c !== person).map((c) => c.initial));
   const name = rng.shuffle(GHOST_NAMES).find((nm) => !used.has(nm[0])) || person.name;
   Object.assign(person, { ghost: true, name, initial: name[0], role: 'ghost', title: 'the Ghost' });
@@ -262,7 +277,7 @@ function chooseClues(rng, p, target, rules = {}) {
   return false;
 }
 
-const isExact = (c) => c.rel.length === 2 || c.rel === 'diag';
+export const isExact = (c) => c.rel.length === 2 || c.rel === 'diag';
 
 // The same puzzle with person L's statements taken as lies.
 export function withLiar(p, L) {
@@ -272,7 +287,7 @@ export function withLiar(p, L) {
 // Zeta-9: every suspect describes someone else (telepathy); on Hard one of them is a human
 // impostor whose statement is false. The answer must be unique across every choice of liar,
 // and each wrong choice must fall apart under plain logic.
-function chooseThemedClues(rng, p, target, rules) {
+export function chooseThemedClues(rng, p, target, rules, opts = {}) {
   const suspects = p.people.map((pr, k) => k).filter((k) => !p.people[k].isVictim);
   const allowed = ([c]) => (c.type !== 'rel' || (target.relMax > 0 && (target.vague || isExact(c))))
     && !(rules.impostor && (c.type === 'onlyIn' || c.type === 'onlyOn'));
@@ -314,6 +329,12 @@ function chooseThemedClues(rng, p, target, rules) {
     });
     p.people.forEach((pr) => { if (pr.isVictim) pr.clues = []; });
     if (!ok || relLeft < 0) continue;
+    // recipe 2 only: somebody may also have sensed where the body lay
+    if (opts.bodyClues && tries >= opts.bodyFrom && rng.chance(0.65)) {
+      const v = p.people.findIndex((pr) => pr.isVictim);
+      const body = trueCluesFor(p, v).filter(([c]) => opts.bodyClues.has(c.type));
+      if (body.length) p.people[rng.pick(suspects)].clues.push({ ...rng.weighted(body), about: v });
+    }
     let liar = -1;
     if (rules.impostor) {
       // The honest statements alone must settle the case: the liar's would-be true statement
@@ -362,7 +383,7 @@ function derangement(rng, xs) {
   }
   return null;
 }
-const sameClue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+export const sameClue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 function dressCase(rng, p, T = THEMES.manor) {
   const victim = p.people[p.victim];
