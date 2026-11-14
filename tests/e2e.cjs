@@ -212,6 +212,14 @@ const ok = (cond, msg) => { if (!cond) failures++; console.log(cond ? 'PASS' : '
     await open(p, 'egypt-easy-1');
     const g = await gen(p, 'egypt', 'easy', 1, 2);
     ok(await count(p, '.alibi') === g.people - 1, 'Egypt easy: one alibi per mask');
+    ok(await count(p, '.legend .chip') > 3 && await count(p, '.clue .mini') > 0, 'Egypt easy: a key under the board, and pictures inside the statements');
+    await p.locator('.legend .chip').first().click(); await p.waitForTimeout(150);
+    ok(await count(p, '.legend-hi') > 0 && await count(p, '.chip.on') === 1, 'Egypt easy: tapping a key entry lights those objects up');
+    await shot(p, 'e2e-legend', true);
+    await p.locator('.legend .chip').first().click();
+    const blockedCell = g.cells.findIndex((c) => !c.void && c.obj && !freeCell(g, g.cells.indexOf(c)));
+    await tap(p, blockedCell, g.w); await p.waitForTimeout(100);
+    ok(/That is an? /.test(await p.locator('.status').textContent()), 'Egypt easy: tapping an object says what it is');
     await p.locator('.alibi-main').first().click(); await p.waitForTimeout(150);
     ok(await count(p, '.clue-hi, .area-hi') > 0, 'Egypt easy: tapping an alibi lights it up on the board');
     await p.locator('.guess').first().click();

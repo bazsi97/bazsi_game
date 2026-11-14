@@ -208,7 +208,7 @@ h2, h3, h4, p { margin: 0; }
 .board .outer { fill: none; stroke: var(--ink); stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; }
 .board .door { stroke: #c98b55; stroke-width: 7; stroke-linecap: round; opacity: 0.9; }
 .board .tag rect { fill: #fffdf6; stroke: var(--ink); stroke-width: 2.6; }
-.board .tag text { font-family: var(--body); font-weight: 700; font-size: 13.5px; letter-spacing: 0.06em; fill: var(--ink); text-transform: uppercase; }
+.board .tag text { font-family: var(--body); font-weight: 700; font-size: 12.5px; letter-spacing: 0.04em; fill: var(--ink); text-transform: uppercase; }
 .board .excluded { stroke: var(--ink); stroke-width: 7.5; opacity: 0.85; stroke-linecap: round; fill: none; }
 .board .excluded-shade { fill: var(--ink); opacity: 0.42; }
 .board .clue-hi { fill: #fff; fill-opacity: 0.25; stroke: var(--red); stroke-width: 5; stroke-dasharray: 11 6; }
@@ -421,3 +421,19 @@ h2, h3, h4, p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- the key: what every object on the scene is called ---------- */
+.legend { display: grid; gap: 5px; width: 100%; max-width: 640px; }
+.legend-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.legend-label { font-family: var(--hand); font-size: 0.86rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); margin-right: 2px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 1px 10px 1px 4px; cursor: pointer;
+  border: 2.5px solid var(--ink); border-radius: 999px; background: var(--card); font-family: var(--body); font-weight: 600; font-size: 0.86rem;
+}
+.chip .mini { width: 26px; height: 26px; margin: 0; }
+.legend-row.blocks .chip { background: #e9e2d3; }
+.chip.on { background: #ffd400; box-shadow: 0 0 0 3px var(--red); }
+.board .legend-hi { fill: #ffd400; fill-opacity: 0.35; stroke: var(--red); stroke-width: 6; }
+/* a small picture after an object's name in a statement */
+.mini { display: inline-block; width: 1.5em; height: 1.5em; vertical-align: -0.4em; margin: -0.2em 0 -0.2em 0.15em; }
+.card.placed .clue .mini { opacity: 0.7; }

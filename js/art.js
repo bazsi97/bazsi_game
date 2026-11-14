@@ -306,12 +306,15 @@ const OBJ = {
     <path class="s" d="M33 54 H67 M34 66 H66 M35 78 H65" style="stroke:${C.lapis};stroke-width:5"/>
     <path class="s" d="M40 48 L60 48" style="stroke:${C.red};stroke-width:4"/>`,
   urn: `
-    <path class="o" fill="${C.cream}" d="M32 40 C24 54 26 82 38 92 H62 C74 82 76 54 68 40 Z"/>
-    <path class="s" d="M28 58 H72" style="stroke:${C.lapis};stroke-width:5"/><path class="s" d="M30 72 H70" style="stroke:${C.terra};stroke-width:4"/>
-    <path class="o" fill="${C.dark}" d="M34 40 C34 18 44 8 50 8 C56 8 66 18 66 40 Z"/>
-    <path class="o2" fill="${C.dark}" d="M38 16 L34 2 L46 10 Z M62 16 L66 2 L54 10 Z"/>
-    <circle class="n" fill="${C.gold}" cx="44" cy="24" r="2.6"/><circle class="n" fill="${C.gold}" cx="56" cy="24" r="2.6"/>
-    <path class="sh" d="M60 42 C68 56 68 80 58 92 H62 C74 82 76 54 68 40 Z"/>`,
+    <path class="s" d="M36 30 C20 30 20 52 32 54 M64 30 C80 30 80 52 68 54" stroke-width="5"/>
+    <path class="s" d="M36 30 C20 30 20 52 32 54 M64 30 C80 30 80 52 68 54" style="stroke:${C.terra};stroke-width:2.4"/>
+    <path class="o" fill="${C.terra}" d="M40 18 H60 V30 C76 38 80 62 66 84 L60 92 H40 L34 84 C20 62 24 38 40 30 Z"/>
+    <path class="o" fill="${C.cream}" d="M36 12 H64 V20 H36 Z"/>
+    <path class="n" fill="${C.cream}" d="M27 52 C27 58 28 62 30 66 H70 C72 62 73 58 73 52 Z"/>
+    <path class="s" d="M26 52 H74 M29 66 H71" style="stroke-width:2.2"/>
+    <path class="s" d="M32 59 l5 -5 5 5 5 -5 5 5 5 -5 5 5 5 -5" style="stroke:${C.lapis};stroke-width:2.4"/>
+    <path class="sh" d="M60 30 C76 38 80 62 66 84 L60 92 H54 C68 74 68 44 56 30 Z"/>
+    <rect class="o" fill="${C.woodD}" x="36" y="90" width="28" height="6" rx="2"/>`,
   statue: `
     <rect class="o" fill="${C.stoneD}" x="18" y="80" width="64" height="14" rx="2"/>
     <path class="o" fill="${C.stone}" d="M30 80 V52 C30 44 38 42 42 42 H58 C62 42 70 44 70 52 V80 Z"/>

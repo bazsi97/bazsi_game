@@ -212,6 +212,7 @@ function openCase(t, d, n) {
     guesses: keep?.guesses ?? (P.unmask ? P.unmask.suspects.map(() => null) : null),
     misses: keep?.misses ?? 0,
     alibiSel: null,
+    legendSel: null,
   };
   setHash(`#${P.key}`);
   renderPage();
@@ -393,7 +394,7 @@ function renderPage() {
             <p class="rule-line">${ruleLine()}${twist ? ` ${twist}` : ''}</p>
           </div>
         </section>
-        <section class="board-wrap">${names}<div class="accuse-slot"></div>${boardSvg()}</section>
+        <section class="board-wrap">${names}<div class="accuse-slot"></div>${boardSvg()}${legendHtml()}</section>
         <section class="dossier">
           <h3 class="section-title">${P.unmask ? 'The masks' : 'The suspects'}</h3>
           <div class="cards">${P.people.map(cardHtml).join('')}</div>
@@ -421,10 +422,19 @@ function renderPage() {
 // On a card "the Jackal" is simply "Jackal".
 const shortName = (person) => cap(person.masked ? person.name.replace(/^the /, '') : person.name);
 
+// A statement with a small picture after each object it names: "beside an urn [urn]".
+const miniIcon = (kind) => `<svg class="art mini" viewBox="0 0 100 100" aria-hidden="true">${objectSvg(kind)}</svg>`;
+function clueHtml(person, c) {
+  const text = clueText(P, person, c);
+  if (!c.obj) return text;
+  const word = `<b>${OBJECTS[c.obj].name}</b>`;
+  return text.includes(word) ? text.replace(word, `${word}${miniIcon(c.obj)}`) : text;
+}
+
 const colourNames = (html) => html.replace(/data-who="(\d+)"/g, (_, j) => `style="color:${inkOf(Number(j))}"`);
 
 function cardHtml(person, k) {
-  const said = colourNames(person.clues.map((c) => clueText(P, person, c)).join(' '));
+  const said = colourNames(person.clues.map((c) => clueHtml(person, c)).join(' '));
   const clues = person.isVictim ? `<b>The victim.</b> Alone with the murderer.${said ? ` ${said}` : ''}` : said;
   const lie = P.impostor >= 0 && !person.isVictim
     ? `<span class="lie-tag" role="button" tabindex="0" data-act="suspect" data-k="${k}" aria-label="Mark ${person.name} as the liar">lying?</span>` : '';
@@ -439,6 +449,25 @@ function cardHtml(person, k) {
     </button>`;
 }
 
+// The key: every kind of object in this case, by name. Tap one to find them all on the board.
+function legendHtml() {
+  const kinds = [...new Set(P.cells.map((c) => c.obj).filter(Boolean))];
+  const chip = (o) => `<button class="chip" data-act="legend" data-kind="${o}">${miniIcon(o)}${OBJECTS[o].name}</button>`;
+  const seats = kinds.filter((o) => OBJECTS[o].occupiable), blocks = kinds.filter((o) => !OBJECTS[o].occupiable);
+  return `<div class="legend" aria-label="Key">
+      ${seats.length ? `<div class="legend-row"><span class="legend-label">Can be occupied</span>${seats.map(chip).join('')}</div>` : ''}
+      ${blocks.length ? `<div class="legend-row blocks"><span class="legend-label">Blocks the square</span>${blocks.map(chip).join('')}</div>` : ''}
+    </div>`;
+}
+
+function tapLegend(kind) {
+  S.legendSel = S.legendSel === kind ? null : kind;
+  play('select');
+  renderDynamic();
+  const count = (P.pieces || []).filter((x) => x.kind === kind).length + P.cells.filter((c) => c.obj === kind && c.piece == null).length;
+  setStatus(S.legendSel ? `${cap(OBJECTS[kind].name)}: ${count} on the scene, lit up on the board.` : defaultStatus());
+}
+
 function alibiHtml(sp, i) {
   const ink = '#6b5b45', tint = '#efe3cc';
   return `
@@ -446,7 +475,7 @@ function alibiHtml(sp, i) {
       <button class="alibi-main" data-act="alibi" data-i="${i}" aria-label="${sp.name}'s alibi">
         <span class="photo">${portraitSvg(sp, { color: ink, tint })}</span>
         <span class="meta"><span class="name">${sp.name}</span><span class="role">${sp.title}</span></span>
-        <span class="clue">${clueText(P, sp, sp.alibi)}</span>
+        <span class="clue">${clueHtml(sp, sp.alibi)}</span>
       </button>
       <button class="guess" data-act="guess" data-i="${i}" aria-label="Note which mask ${sp.name} wore">?</button>
     </div>`;
@@ -546,7 +575,7 @@ function boardSvg() {
     let best = -1;
     for (let i = 0; i < N; i++) if (cellOk(i) && P.cells[i].area === id) best = i;
     if (best < 0) return;
-    const tw = Math.min(a.name.length * 10.5 + 18, CELL * 1.9);
+    const tw = Math.min(a.name.length * 9.3 + 16, CELL * 1.9);
     const [bx, by] = xy(best);
     let x = bx + CELL - tw - 4;
     // keep the tag inside the room where it can be
@@ -593,6 +622,7 @@ function renderDynamic() {
     if (S.selected != null) out.push(...clueHighlights(cluesAbout(P, S.selected)));
     else if (S.alibiSel != null && P.unmask) out.push(...clueHighlights([P.unmask.suspects[S.alibiSel].alibi]));
   }
+  if (S.legendSel) for (let i = 0; i < N; i++) if (P.cells[i].obj === S.legendSel) out.push(cellRect(i, 'legend-hi', 4, 12));
   if (S.hintMarks) for (const i of S.hintMarks) if (!P.cells[i].void) out.push(cellRect(i, 'hint-hi'));
   if (S.selected != null && S.placed[S.selected] != null) out.push(cellRect(S.placed[S.selected], 'cell-hi'));
   for (let i = 0; i < N; i++) {
@@ -639,6 +669,7 @@ function renderDynamic() {
     el.classList.toggle('liar', S.liarKnown && k === P.impostor);
     el.setAttribute('aria-pressed', String(k === S.selected));
   });
+  document.querySelectorAll('.chip').forEach((el) => el.classList.toggle('on', el.dataset.kind === S.legendSel));
   if (P.unmask) {
     const masks = P.people.filter((pr) => !pr.isVictim);
     document.querySelectorAll('.alibi').forEach((el) => {
@@ -808,6 +839,8 @@ function onPointerUp(ev) {
   else tapCell(g.start);
 }
 
+const withArticle = (kind) => `${/^[aeiou]/.test(OBJECTS[kind].name) ? 'an' : 'a'} ${OBJECTS[kind].name}`;
+
 // The first square of a swipe decides whether the swipe adds or removes.
 function paintModeFor(i) {
   if (S.crossMode) return S.marks.has(i) ? 'unx' : 'x';
@@ -854,15 +887,15 @@ function tapCell(i) {
     setStatus(defaultStatus());
     return;
   }
+  const here = P.cells[i].obj;
   if (S.crossMode ? !isFree(P, i) : S.selected == null ? !isFree(P, i) : !canStand(P, S.selected, i)) {
-    if (S.selected != null) {
-      play('bump');
-      toast(`Nobody can stand on the ${OBJECTS[P.cells[i].obj].name}.`);
-    }
+    if (S.selected != null) play('bump');
+    else play('select');
+    toast(`That is ${withArticle(here)}. Nobody can stand there.`, S.selected != null);
     return;
   }
   if (!S.crossMode && S.selected == null) {
-    toast('Pick a suspect first, or switch on Cross.', false);
+    toast(here ? `That is ${withArticle(here)}. It can be occupied.` : 'Pick a suspect first, or switch on Cross.', false);
     return;
   }
   snapshot();
@@ -1304,6 +1337,7 @@ document.addEventListener('click', (ev) => {
       names: () => setEarthNames(el.dataset.earth === '1'),
       suspect: () => toggleSuspect(Number(el.dataset.k)),
       alibi: () => tapAlibi(Number(el.dataset.i)),
+      legend: () => tapLegend(el.dataset.kind),
       guess: () => cycleGuess(Number(el.dataset.i)),
       accuse: showAccuse,
       'name-killer': () => accuse(Number(el.dataset.i)),
