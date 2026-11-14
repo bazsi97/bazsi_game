@@ -133,3 +133,68 @@ export function explainNext(p, placed) {
 }
 
 export { victimIndex };
+
+// ---------- Egypt: the unmasking ----------
+// Every named suspect wore exactly one mask and their alibi is true of that mask's square. An
+// alibi may fit several masks; what is unique is the way of giving everybody a mask of their own.
+
+const maskIndexes = (p) => p.people.map((_, k) => k).filter((k) => !p.people[k].isVictim);
+
+// For each named suspect: the masks whose square their alibi is true of.
+export function alibiTable(p) {
+  const masks = maskIndexes(p);
+  return p.unmask.suspects.map((sp) => masks.filter((m) => CLUES[sp.alibi.type].own(p, sp.alibi, p.solution[m])));
+}
+
+function deadEnd(p, cand) {
+  const j = cand.findIndex((c) => !c.length);
+  if (j >= 0) return `no mask would be left that fits ${p.unmask.suspects[j].name}'s alibi`;
+  const m = maskIndexes(p).find((x) => !cand.some((c) => c.includes(x)));
+  return m == null ? null : `nobody would be left to wear ${p.people[m].name}`;
+}
+
+function forcedMoves(p, cand, done) {
+  const moves = [];
+  cand.forEach((c, j) => {
+    if (!done.has(j) && c.length === 1) moves.push({ j, m: c[0], text: `${p.unmask.suspects[j].name} would have to be ${p.people[c[0]].name}` });
+  });
+  for (const m of maskIndexes(p)) {
+    const who = cand.flatMap((c, j) => (c.includes(m) ? [j] : []));
+    if (who.length === 1 && !done.has(who[0]) && cand[who[0]].length > 1) {
+      moves.push({ j: who[0], m, text: `only ${p.unmask.suspects[who[0]].name} could have worn ${p.people[m].name}` });
+    }
+  }
+  return moves;
+}
+
+// The shortest run of forced steps that leaves somebody without a mask (or a mask without anybody).
+function chainToDeadEnd(p, cand, done, depth) {
+  const end = deadEnd(p, cand);
+  if (end) return [end];
+  if (!depth) return null;
+  for (const mv of forcedMoves(p, cand, done)) {
+    const next = cand.map((c, j) => (j === mv.j ? [mv.m] : c.filter((m) => m !== mv.m)));
+    const rest = chainToDeadEnd(p, next, new Set([...done, mv.j]), depth - 1);
+    if (rest) return [mv.text, ...rest];
+  }
+  return null;
+}
+
+// Why named suspect i was not behind the killer's mask. `fits` says whether their alibi is at
+// least true of the killer's square: if so, the reason is that somebody else would go maskless.
+export function whyNotKiller(p, i) {
+  const killer = p.murderer, mask = p.people[killer].name, name = p.unmask.suspects[i].name;
+  const table = alibiTable(p);
+  if (!table[i].includes(killer)) {
+    return { fits: false, text: `Not ${name}: that alibi is not true of the square where ${mask} stood.` };
+  }
+  const start = table.map((list, j) => (j === i ? [killer] : list.filter((m) => m !== killer)));
+  let chain = null;
+  for (let depth = 0; depth <= table.length && !chain; depth++) chain = chainToDeadEnd(p, start, new Set([i]), depth);
+  const end = chain ? chain.pop() : 'the others could not each have had a mask of their own';
+  const then = chain && chain.length ? `${chain.join(', ')}, and then ${end}` : end;
+  return {
+    fits: true,
+    text: `Not ${name}. That alibi does fit ${mask}, but it is not the only one that does. If ${name} had worn ${mask}, ${then}. Everybody wore a mask of their own.`,
+  };
+}

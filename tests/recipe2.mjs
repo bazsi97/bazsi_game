@@ -6,6 +6,7 @@ import { generatePuzzle, withLiar } from '../js/generator.js';
 import { countSolutions, logicalSolve, aloneOk } from '../js/solver.js';
 import { clueHolds, clueText, canStand } from '../js/clues.js';
 import { countMatchings, alibiFits } from '../js/generator2.js';
+import { alibiTable, whyNotKiller } from '../js/hints.js';
 const N = Number(process.argv[2] || 12);
 const only = process.argv[3];
 let fails = 0;
@@ -34,6 +35,13 @@ for (const theme of ['manor', 'zeta', 'haunted', 'egypt']) {
         const compat = p.unmask.suspects.map((s) => masks.map((m) => alibiFits(p, s.alibi, m)));
         if (countMatchings(compat, 3) !== 1) { fails++; console.log('FAIL unmask', tag); }
         p.unmask.suspects.forEach((s, i) => { if (!alibiFits(p, s.alibi, p.unmask.wears[i])) { fails++; console.log('FAIL alibi', tag); } });
+        // a wrong name always gets a true reason: the alibi does not fit, or it leaves somebody maskless
+        const fitsKiller = alibiTable(p).map((list) => list.includes(p.murderer));
+        p.unmask.suspects.forEach((s, i) => {
+          if (p.unmask.wears[i] === p.murderer) return;
+          const why = whyNotKiller(p, i);
+          if (why.fits !== fitsKiller[i] || !why.text.includes(s.name) || /could not each/.test(why.text)) { fails++; console.log('FAIL why-not', tag, why.text); }
+        });
       }
       if (process.argv.includes('--show') && seed === 2 && d !== 'easy') { console.log(`\n${tag} [${p.shape}] ${p.headline}\n${show(p)}` + p.people.map((pr) => `  ${pr.name}${pr.isVictim ? ' [V]' : ''}: ${pr.clues.map((c) => clueText(p, pr, c).replace(/<[^>]+>/g, '')).join(' ')}`).join('\n'));
         if (p.unmask) console.log(p.unmask.suspects.map((s, i) => `   alibi ${s.name} (${p.people[p.unmask.wears[i]].name}): ${clueText(p, s, s.alibi).replace(/<[^>]+>/g, '')}`).join('\n')); }

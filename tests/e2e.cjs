@@ -238,9 +238,15 @@ const ok = (cond, msg) => { if (!cond) failures++; console.log(cond ? 'PASS' : '
     const wrong = (right + 1) % g.wears.length;
     await p.locator(`.accuse-list [data-i="${wrong}"]`).click(); await p.waitForTimeout(200);
     ok(await count(p, '.extra') === 0 && await p.locator(`.accuse-list [data-i="${wrong}"]`).isDisabled(), 'Egypt easy: a wrong name is rejected');
+    ok(await p.locator('.accuse-note').isVisible() && /^Not .+(not true of the square|Everybody wore a mask of their own)/.test(await p.locator('.accuse-why').textContent()),
+      'Egypt easy: the unmasking explains itself, and a wrong name gets a reason');
+    await shot(p, 'e2e-accuse-wrong');
     await p.locator('.sheet [data-act="close"]').click();
     await p.reload(); await p.waitForTimeout(500);
     ok(await count(p, '.accuse-btn') === 1, 'Egypt easy: after a reload the unmasking is still waiting');
+    await p.locator('.alibi-main').first().click(); await p.waitForTimeout(150);
+    ok(/alibi fits (only )?the /.test(await p.locator('.status').textContent()), 'Egypt easy: with the masks placed, tapping an alibi says which masks it fits');
+    await p.locator('.alibi-main').first().click();
     await p.locator('[data-act="hint"]').click(); await p.waitForTimeout(150);
     await p.locator('[data-act="hint"]').click(); await p.waitForTimeout(300);
     ok(await p.locator('.hint-slip').isVisible(), 'Egypt easy: hint lists which masks each alibi fits');

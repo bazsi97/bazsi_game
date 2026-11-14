@@ -1,13 +1,12 @@
 // UI: front page (pick a theme and a case), the case itself, taps, saved progress.
 
 import { generatePuzzle, withLiar, CURRENT_GEN } from './generator.js';
-import { alibiFits } from './generator2.js';
 import { clueText, isFree, canStand, cluesAbout } from './clues.js';
 import { OBJECTS, THEMES } from './themes.js';
 import { objectSvg, pieceSvg, patternDefsSvg, padSvg, emblemSvg } from './art.js';
 import { portraitSvg, hostSvg } from './portraits.js';
 import { logicalSolve } from './solver.js';
-import { explainNext } from './hints.js';
+import { explainNext, alibiTable, whyNotKiller } from './hints.js';
 import { play, unlock, setSoundEnabled } from './sound.js';
 
 const STORE_KEY = 'murdoku:v2';
@@ -119,7 +118,8 @@ const EDITIONS = {
     },
     intro: [
       '<b>Masks of the Gods</b> (Easy and Hard): the suspects wore masks, so the statements are about the Jackal, the Cat, the Falcon… Place the <b>masks</b> as usual.',
-      'Then comes the unmasking. Each named suspect gives an <b>alibi</b> that is true of the square their mask stood on. The alibis fit the masks in exactly one way, so you can work out <b>who was behind the killer\'s mask</b>.',
+      'Then comes the unmasking. Each named suspect wore <b>exactly one mask</b>, and no two wore the same. Their <b>alibi</b> is true of the square that mask stood on.',
+      'An alibi <b>may fit several masks</b>, and several alibis may fit the killer\'s mask, so do not stop at the first name that fits. Only <b>one way</b> gives everybody a mask of their own. Start with an alibi that fits a single mask, rule that mask out for the others, and carry on until one name is left for the killer\'s mask.',
       '<b>The Pyramid</b> (Medium and Hard): the board is a stepped pyramid. Every <b>row</b> holds exactly one person; a column holds one at most, and some columns stay empty.',
     ],
   },
@@ -399,7 +399,7 @@ function renderPage() {
           <h3 class="section-title">${P.unmask ? 'The masks' : 'The suspects'}</h3>
           <div class="cards">${P.people.map(cardHtml).join('')}</div>
           ${P.unmask ? `<h3 class="section-title">The alibis</h3>
-            <p class="alibi-note">Each of these people wore one of the masks. Their alibi is true of the square that mask stood on.</p>
+            <p class="alibi-note">Each of these people wore <b>one mask</b>, and no two wore the same. An alibi is true of the square that mask stood on, but it <b>may fit several masks</b>. Only one way gives everybody a mask of their own: start with an alibi that fits a single mask, and rule that mask out for the others.</p>
             <div class="alibis">${P.unmask.suspects.map(alibiHtml).join('')}</div>` : ''}
           <div class="key-slot"><h3 class="section-title">The key</h3>${legendHtml()}</div>
         </section>
@@ -751,7 +751,7 @@ function notesSvg(i, ks) {
 
 function defaultStatus() {
   if (S.solved) return `Case closed. ${killerName()} did it.`;
-  if (accusing()) return 'Every mask is in place. Now: who was behind the killer\'s mask?';
+  if (accusing()) return 'Every mask is in place. Tap an alibi to see which masks it fits.';
   if (S.crossMode) return 'Cross-out mode: tap or swipe squares.';
   if (S.selected != null) {
     const pr = P.people[S.selected];
@@ -966,7 +966,12 @@ function tapAlibi(i) {
   S.crossMode = false;
   play('select');
   renderDynamic();
-  setStatus(S.alibiSel == null ? defaultStatus() : `${P.unmask.suspects[i].name}'s alibi is lit up on the board.`);
+  if (S.alibiSel == null) return setStatus(defaultStatus());
+  const name = P.unmask.suspects[i].name;
+  if (!accusing()) return setStatus(`${name}'s alibi is lit up on the board.`);
+  // every mask is in place, so say outright which of them this alibi is true of
+  const fits = alibiTable(P)[i].map((m) => P.people[m].name);
+  setStatus(fits.length === 1 ? `${name}'s alibi fits only ${fits[0]}.` : `${name}'s alibi fits ${orList(fits)}: one of them, not yet clear which.`);
 }
 
 // Pencil in which mask you think someone wore (purely a note for yourself).
@@ -1142,11 +1147,7 @@ function toggleSuspect(k) {
   saveStore();
 }
 
-// Egypt: which masks does each alibi fit?
-function alibiTable() {
-  const masks = P.people.map((_, k) => k).filter((k) => !P.people[k].isVictim);
-  return P.unmask.suspects.map((sp) => masks.filter((m) => alibiFits(P, sp.alibi, m)));
-}
+const orList = (list) => (list.length === 1 ? list[0] : `${list.slice(0, -1).join(', ')} or ${list[list.length - 1]}`);
 
 function unmaskHint() {
   const ks = killerSuspect();
@@ -1156,15 +1157,15 @@ function unmaskHint() {
   if (S.hintStage === 0) {
     S.hintStage = 1;
     play('hint');
-    toast(`Whose alibi fits where ${mask} stood? Tap Hint again for a clue.`, false);
+    toast(`More than one alibi may fit ${mask}. Work out who wore the other masks first. Tap Hint again for a clue.`, false);
   } else if (S.hintStage === 1) {
     S.hintStage = 2;
-    const table = alibiTable();
+    const table = alibiTable(P);
     const lines = P.unmask.suspects.map((sp, i) => {
       const fits = table[i].map((m) => P.people[m].name);
-      return `${sp.name}'s alibi fits ${fits.length === 1 ? `only ${fits[0]}` : fits.slice(0, -1).join(', ') + ' or ' + fits[fits.length - 1]}.`;
+      return `${sp.name}'s alibi fits ${fits.length === 1 ? `only ${fits[0]}` : orList(fits)}.`;
     });
-    lines.push('Start with an alibi that fits only one mask, cross that mask off for everyone else, and repeat.');
+    lines.push('Everybody wore a mask of their own. Start with an alibi that fits only one mask, cross that mask off for everyone else, and repeat.');
     play('hint');
     showHintSlip(mask, lines);
     setStatus(`Tap Hint once more to unmask ${mask}.`);
@@ -1246,7 +1247,9 @@ function showAccuse() {
     <div class="kicker">The masks are all in place</div>
     <h2>Who was ${mask.name}?</h2>
     <div class="mugshot" style="--pc:${inkOf(k)}">${portraitSvg(mask, { color: inkOf(k), tint: tintOf(k) })}</div>
-    <p>${cap(mask.name)} was alone with ${victim.name} in the <b>${room}</b>. Check the alibis: only one of these people can have been behind that mask.</p>
+    <p>${cap(mask.name)} was alone with ${victim.name} in the <b>${room}</b>.</p>
+    <p class="accuse-note"><b>Careful:</b> more than one alibi may fit ${mask.name}, and an alibi may fit more than one mask. Everybody wore exactly <b>one mask of their own</b>, so work out who wore the other masks first. Only one name is then left for ${mask.name}.</p>
+    <p class="accuse-why" role="alert" hidden></p>
     <div class="accuse-list">${P.unmask.suspects.map((sp, i) => `<button class="btn" data-act="name-killer" data-i="${i}">${sp.name}</button>`).join('')}</div>
     <div class="actions"><button class="btn" data-act="close">Look at the alibis again</button></div>`, 'accuse');
 }
@@ -1262,7 +1265,10 @@ function accuse(i) {
   play('wrong');
   const btn = document.querySelector(`.accuse-list [data-i="${i}"]`);
   if (btn) { btn.disabled = true; btn.classList.add('wrong'); }
-  toast(`Not ${P.unmask.suspects[i].name}: their alibi doesn't fit that square.`);
+  const why = whyNotKiller(P, i).text;
+  const box = $('.accuse-why');
+  if (box) { box.textContent = why; box.hidden = false; }
+  toast(why);
   saveStore();
 }
 
