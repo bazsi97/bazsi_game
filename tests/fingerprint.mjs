@@ -11,17 +11,28 @@ const FILE = new URL('./fingerprints.json', import.meta.url);
 const COUNT = 40;
 
 const now = {};
-// Manor keys predate themes ("medium-3"); themed keys are "zeta-medium-3".
+// Recipe 1. Manor keys predate themes ("medium-3"); themed keys are "zeta-medium-3".
 for (const theme of ['manor', 'zeta', 'haunted']) {
   for (const d of ['easy', 'medium', 'hard']) {
     for (let n = 1; n <= (theme === 'manor' ? COUNT : 15); n++) {
-      const p = generatePuzzle({ seed: n, difficulty: d, theme });
+      const p = generatePuzzle({ seed: n, difficulty: d, theme, gen: 1 });
       // the Manor keeps its original fingerprint formula so its recorded values stay comparable
       const essence = theme === 'manor'
         ? JSON.stringify([p.n, p.cells, p.areas, p.solution, p.people.map((x) => [x.name, x.role, x.isVictim, x.clues, x.lookSeed])])
         : JSON.stringify([p.n, p.cells, p.areas, p.solution, p.impostor ?? null,
           p.people.map((x) => [x.name, x.role, x.isVictim, x.clues, x.lookSeed, x.earthName ?? null, x.ghost ?? null])]);
       now[theme === 'manor' ? `${d}-${n}` : `${theme}-${d}-${n}`] = hashString(essence).toString(16);
+    }
+  }
+}
+// Recipe 2 (non-square boards, big furniture, Egypt): keys carry a "g2:" prefix.
+for (const theme of ['manor', 'zeta', 'haunted', 'egypt']) {
+  for (const d of ['easy', 'medium', 'hard']) {
+    for (let n = 1; n <= 20; n++) {
+      const p = generatePuzzle({ seed: n, difficulty: d, theme, gen: 2 });
+      const essence = JSON.stringify([p.w, p.h, p.cells, p.areas, p.pieces, p.solution, p.impostor ?? null, p.unmask ?? null,
+        p.people.map((x) => [x.name, x.role, x.isVictim, x.clues, x.lookSeed, x.earthName ?? null, x.ghost ?? null, x.mask ?? null])]);
+      now[`g2:${theme}-${d}-${n}`] = hashString(essence).toString(16);
     }
   }
 }

@@ -59,19 +59,12 @@ Hints follow the same deduction order, so a hint is always the *next sensible st
 - **Optional curation later:** pre-generate 10k seeds offline, score them for "fun" (clue variety,
   deduction depth, no early freebies) and serve the top ones as the official sequence.
 
-## 4. Look & feel: avoiding "AI slop"
+## 4. Look & feel
 
-The rule we follow: one strong idea, executed consistently. This one is a 1930s newspaper.
-
-- Black ink on aged newsprint, plus **one** spot colour (blood red) used only for the victim, errors
-  and the "Extra!" stamp.
-- Real newspaper typography: Playfair Display (masthead/headlines), Old Standard (body), Special Elite
-  (typewritten statements). Drop cap, double rules, a dateline.
-- Floors as newsprint hatching patterns, not flat colours. Thick walls and dotted inner grid lines, like the book.
-- Characters drawn in rubber-hose cartoon style (pie-cut eyes, bold outlines, solid black clothing),
-  assembled from parts per role: the Butler has tails, the Banker a top hat and monocle, the Cook a toque.
-- Next level of polish: commission or draw a small set of hand-inked parts (heads, hats, hair) and
-  keep the same modular system, which gives infinite variety with a human hand.
+The first version was a black-and-white 1930s newspaper. It has since moved to the colourful
+storybook look of the Murdoku books; see section 8. The rule stays the same: one strong idea,
+executed consistently, with a small fixed palette and a modular character system that hand-drawn
+parts can replace later.
 
 ## 5. Variants (book 2 style), for later
 
@@ -92,23 +85,50 @@ variants slot in as **new constraints and new clue types**:
 
 ## 6. Themes
 
-A theme selector ("editions") sits above the difficulty picker; each theme has its own
-Easy/Medium/Hard series. Manor keys stay `medium-3` (saves predate themes); others are
-`zeta-medium-3`. The Manor generator path and seed strings are untouched, which the fingerprint
-test enforces. Each theme has a host's chapter intro on first visit.
+A world picker sits above the difficulty picker; each world has its own Easy/Medium/Hard series.
+Manor keys stay `medium-3` (saves predate themes); others are `zeta-medium-3`. Each world has a
+host who briefs you on first visit.
 
-| Theme | Easy | Medium | Hard | Status |
-|---|---|---|---|---|
-| The Manor | classic | + one exact relation | + several | live |
-| Outpost Zeta-9 | telepathy (statements describe someone else) | + teleporter pads | + human impostor whose statement is false | live |
-| Hollow Hill House | ghost may stand inside furniture | same | same | live |
-| Egypt | masks of the gods (hidden identities) | pyramid-shaped board | both | next |
-| The Midnight Heist | cameras see along their row until blocked | same | same | next |
+| World | Easy | Medium | Hard |
+|---|---|---|---|
+| The Manor | classic | + one exact relation | + several |
+| Outpost Zeta-9 | telepathy (statements describe someone else) | + teleporter pads | + human impostor whose statement is false |
+| Hollow Hill House | ghost may stand inside furniture | same | same |
+| Sands of Egypt | masks of the gods + unmasking | stepped-pyramid board | both |
+| The Midnight Heist | cameras see along their row until blocked | | *(not built yet)* |
 
-Engine hooks: `clue.about` (telepathy), `clue.neg` + `withLiar()` (impostor: answer unique across
-every choice of liar, and every wrong choice must collapse under plain logic), `person.ghost` +
-`canStand()`, `cell.pad` (teleporters extend "beside"). Zeta-9 people carry `alienName` and
-`earthName`; the switch above the board swaps them everywhere.
+Engine hooks: `clue.about` (telepathy), `clue.neg` + `withLiar()` (impostor), `person.ghost` +
+`canStand()`, `cell.pad` (teleporters), `person.masked` + `p.unmask` (Egypt).
 
-Visual direction: A (tabloid) or B (pinboard), parked. Sound effects are synthesised with Web Audio
-in `js/sound.js` (no audio files).
+**Egypt's masks** are a two-stage puzzle. Stage 1 is a normal case whose "people" are masks
+(the Jackal, the Cat…). Stage 2: each named suspect has an alibi that is true of the square their
+mask stood on; the alibis fit the masks in exactly one way (`countMatchings`), so the name behind
+the killer's mask can be deduced. The case only closes when that name is picked.
+
+## 7. Recipes: how cases change without breaking saves
+
+A case is rebuilt from its number every time it is opened, so its generator must never change.
+Generators are therefore versioned as **recipes**:
+
+- **Recipe 1** (`generator.js`): square boards, single-square furniture.
+- **Recipe 2** (`generator2.js`): boards of any shape (`p.w` x `p.h` with `cell.void` squares:
+  rectangles, L-shapes, stepped pyramids), furniture covering two or four squares (`p.pieces`),
+  more rooms, statements about where the body was found, and Egypt.
+
+Every save is stamped with the recipe that made it (`progress[key].gen`). A case somebody has
+played keeps its recipe forever; a case nobody has opened is made with `CURRENT_GEN`. On a
+non-square board the number of people equals the shorter side, so only that direction is
+guaranteed full, and the solver's "only one person can reach this line" step applies only there.
+
+`tests/fingerprint.mjs` pins the output of every recipe (210 recipe-1 cases, 240 recipe-2 cases).
+If it fails, a change would silently alter cases people have saved: put the change in a new recipe
+instead. `tests/e2e.cjs` additionally opens an old-format save in the real app and finishes it.
+
+## 8. Look and sound
+
+The look follows the Murdoku books: a cream page, flat colour art with a dark outline, pastel
+rooms, one colour per suspect, hosts talking in speech bubbles. `js/art.js` holds furniture
+(single, two-square and the big rug), floor patterns and world emblems; `js/portraits.js` builds
+people, aliens, the ghost, the ten god masks and the hosts from parts. Doorways and room colours
+are drawn from the layout alone, so older cases get them too. Sound effects are synthesised with
+Web Audio in `js/sound.js` (no audio files).

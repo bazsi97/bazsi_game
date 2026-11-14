@@ -959,6 +959,7 @@ function afterChange() {
 }
 
 function closeCase() {
+  clearHint();
   saveStore(); // bank the elapsed time first
   S.solved = true;
   S.selected = null;

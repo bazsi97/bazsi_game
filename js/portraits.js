@@ -346,12 +346,13 @@ const MASK_ART = {
     <circle class="d" cx="40" cy="34" r="2.8"/><circle class="d" cx="60" cy="34" r="2.8"/>
     <path class="t" d="M42 68 Q50 72 58 68"/>`,
   baboon: `
-    <circle class="o" fill="${C.stone}" cx="50" cy="44" r="29"/>
-    <path class="t" d="M26 34 l6 4 M24 46 h7 M28 58 l6 -3 M74 34 l-6 4 M76 46 h-7 M72 58 l-6 -3" opacity="0.6"/>
-    <path class="o" fill="${C.terra}" d="M38 34 C38 24 62 24 62 34 L60 60 C58 72 42 72 40 60 Z"/>
-    <path class="s" d="M38 36 Q44 32 48 37 M52 37 Q56 32 62 36" style="stroke-width:2.6"/>
-    <circle class="d" cx="44" cy="41" r="2.4"/><circle class="d" cx="56" cy="41" r="2.4"/>
-    <path class="t" d="M47 48 V60 M53 48 V60"/><path class="s" d="M44 65 H56" style="stroke-width:2"/>`,
+    <circle class="o" fill="${C.stone}" cx="50" cy="42" r="29"/>
+    <path class="t" d="M25 32 l7 4 M23 44 h8 M27 56 l7 -3 M75 32 l-7 4 M77 44 h-8 M73 56 l-7 -3 M40 16 l2 7 M60 16 l-2 7" opacity="0.6"/>
+    <path class="o" fill="${C.sandD}" d="M36 34 C36 22 64 22 64 34 L62 52 C62 66 58 76 50 76 C42 76 38 66 38 52 Z"/>
+    <path class="o2" fill="${C.blue}" d="M40 46 C40 56 42 64 45 68 L45 46 Z M60 46 C60 56 58 64 55 68 L55 46 Z"/>
+    <path class="o2" fill="${C.red}" d="M46 42 H54 V66 C54 70 46 70 46 66 Z"/>
+    <path class="s" d="M38 35 Q43 31 48 35 M52 35 Q57 31 62 35" style="stroke-width:2.8"/>
+    <circle class="d" cx="43" cy="39" r="2.4"/><circle class="d" cx="57" cy="39" r="2.4"/>`,
   vulture: `
     <path class="o" fill="${C.white}" d="M30 70 q5 -9 10 0 q5 -9 10 0 q5 -9 10 0 q5 -9 10 0 V80 H30 Z"/>
     <ellipse class="o" fill="${C.pink}" cx="50" cy="42" rx="17" ry="21"/>

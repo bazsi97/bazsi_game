@@ -1,6 +1,6 @@
-# The Murdoku Gazette
+# Murdoku
 
-Sudoku meets murder mystery, as a phone- and tablet-friendly web app styled like a 1930s newspaper.
+Sudoku meets murder mystery, as a phone- and tablet-friendly web app in the colourful style of the puzzle books.
 Place every suspect on the crime scene, one per row and column, and unmask the killer.
 Every case is generated from its case number and proven to have exactly one solution, so there are endless cases.
 
@@ -16,8 +16,10 @@ Add it to your home screen (Safari: Share → Add to Home Screen) to play offlin
 ## Test
 
 ```sh
-npm test            # checks existing cases are unchanged (protects saved progress),
-                    # then generates 3×60 cases and verifies each is unique and logically solvable
+npm test                    # fingerprints (saved progress stays valid), then hundreds of generated
+                            # cases per recipe and theme: unique, consistent, logically solvable
+npx http-server -p 8123 -c-1 . &
+node tests/e2e.cjs          # plays the real app in a browser (needs Playwright)
 ```
 
 ## Hosting (GitHub Pages)
@@ -26,4 +28,4 @@ Repo Settings → Pages → *Deploy from a branch* → `main` / root. No build s
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the rules, architecture, scaling plan and future variants.
 
-Fonts: Playfair Display, Old Standard TT and Special Elite (SIL Open Font License).
+Fonts: Alfa Slab One, Zilla Slab, Kaushan Script and Patrick Hand (SIL Open Font License).
