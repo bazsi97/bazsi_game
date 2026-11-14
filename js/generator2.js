@@ -404,11 +404,11 @@ export function countMatchings(compat, limit = 2) {
 
 function makeUnmasking(rng, p, T) {
   const masks = p.people.map((_, k) => k).filter((k) => !p.people[k].isVictim);
-  const taken = new Set([p.people[p.victim].name]);
+  const victim = p.people[p.victim];
   let suspects = null;
-  for (let t = 0; t < 20 && !suspects; t++) {
+  for (let t = 0; t < 40 && !suspects; t++) {
     const cast = makeCast(rng, masks.length, T);
-    if (cast.every((x) => !taken.has(x.name))) suspects = cast;
+    if (cast.every((x) => x.name !== victim.name && x.role !== victim.role)) suspects = cast;
   }
   if (!suspects) return false;
   const wears = rng.shuffle(masks); // suspect i wore mask wears[i]

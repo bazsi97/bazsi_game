@@ -1,15 +1,25 @@
 <!doctype html><meta charset="utf-8"><link rel="stylesheet" href="../css/style.css">
-<style>body{padding:12px}.g{display:grid;grid-template-columns:repeat(6,150px);gap:10px;margin-bottom:14px}.g div{border:2px solid var(--ink);background:var(--paper-2)}.g svg{width:100%;display:block}.o{display:grid;grid-template-columns:repeat(12,90px);gap:6px;margin-top:12px}.o svg{width:90px;height:90px;background:var(--paper);border:1px solid #0002}
-.pad-ring{fill:none;stroke:var(--ink);stroke-width:3;stroke-dasharray:6 5}.pad-ring2{fill:none;stroke:var(--ink);stroke-width:2}.pad-bolt{fill:var(--ink)}</style>
-<h3>Aliens</h3><div class="g" id="aliens"></div><h3>Ghost + humans</h3><div class="g" id="g"></div><div class="o" id="o"></div>
+<style>body{padding:12px}h3{margin:10px 0 6px;font-family:var(--display);font-weight:400}.g{display:grid;grid-template-columns:repeat(8,118px);gap:8px}.g div{border:3px solid var(--ink);border-radius:10px;overflow:hidden}.g svg{width:100%;display:block}
+.o1{display:grid;grid-template-columns:repeat(12,82px);gap:6px}.o1 svg{width:82px;height:82px;background:#ece4d2;border-radius:8px}.o2{display:flex;flex-wrap:wrap;gap:6px}.o2 svg{height:82px;background:#ece4d2;border-radius:8px}</style>
+<h3>Humans</h3><div class="g" id="humans"></div><h3>Egyptians, masks, ghost, hosts</h3><div class="g" id="egypt"></div><h3>Aliens</h3><div class="g" id="aliens"></div>
+<h3>Furniture</h3><div class="o1" id="o"></div><h3>Two-square pieces, emblems</h3><div class="o2" id="big"></div>
 <script type="module">
-import { portraitSvg, patternDefsSvg, objectSvg, padSvg } from '../js/art.js';
-import { ROLES, OBJECTS } from '../js/themes.js';
+import { patternDefsSvg, objectSvg, pieceSvg, padSvg, emblemSvg } from '../js/art.js';
+import { portraitSvg, hostSvg } from '../js/portraits.js';
+import { ROLES, OBJECTS, EGYPT_ROLES, MASKS } from '../js/themes.js';
 document.body.insertAdjacentHTML('afterbegin', patternDefsSvg());
-const inks = ['#1f5fa8', '#2e7d32', '#c25e00', '#7b3fa0', '#00838f', '#ad1457'];
-const tint = (c) => c + '30';
-document.getElementById('aliens').innerHTML = [...Array(12).keys()].map((i) => `<div>${portraitSvg({ species: 'alien', lookSeed: 500 + i * 7 }, { color: inks[i % 6], tint: tint(inks[i % 6]), dead: i === 11 })}</div>`).join('');
-document.getElementById('g').innerHTML = [`<div>${portraitSvg({ ghost: true, gender: 'f', lookSeed: 1 }, { color: '#7b3fa0', tint: '#7b3fa030' })}</div>`]
-  .concat(ROLES.slice(0, 5).map((r, i) => `<div>${portraitSvg({ role: r.id, gender: r.gender === 'any' ? 'f' : r.gender, lookSeed: 900 + i }, { color: inks[i], tint: tint(inks[i]) })}</div>`)).join('');
-document.getElementById('o').innerHTML = Object.keys(OBJECTS).map((o) => `<svg class="art" viewBox="0 0 100 100">${objectSvg(o)}</svg>`).join('') + `<svg class="art" viewBox="0 0 100 100">${padSvg()}</svg>`;
+const inks = ['#2f6fc2', '#2e8b4e', '#d9731a', '#8a4fc0', '#0f9aa6', '#c9367a', '#6f7d1f', '#4a55c4'];
+const mix = (a) => { const p = a.match(/\w\w/g).map((h) => parseInt(h, 16)); return '#' + p.map((v) => Math.round(v * 0.3 + 255 * 0.7).toString(16).padStart(2, '0')).join(''); };
+const cell = (person, i, extra = {}) => `<div>${portraitSvg(person, { color: inks[i % 8], tint: mix(inks[i % 8]), ...extra })}</div>`;
+document.getElementById('humans').innerHTML = ROLES.map((r, i) => cell({ role: r.id, gender: r.gender === 'any' ? (i % 2 ? 'f' : 'm') : r.gender, lookSeed: 900 + i * 13 }, i, { dead: i === 15 })).join('');
+document.getElementById('egypt').innerHTML = EGYPT_ROLES.slice(0, 6).concat([EGYPT_ROLES[13]]).map((r, i) => cell({ role: r.id, culture: 'egypt', gender: r.gender === 'any' ? (i % 2 ? 'f' : 'm') : r.gender, lookSeed: 300 + i * 7 }, i)).join('')
+  + MASKS.map((m, i) => cell({ masked: true, mask: m.id, lookSeed: 1 }, i)).join('')
+  + cell({ ghost: true, lookSeed: 1 }, 3) + ['manor', 'zeta', 'haunted', 'egypt'].map((t) => `<div style="background:#ffe3b3">${hostSvg(t)}</div>`).join('');
+document.getElementById('aliens').innerHTML = [...Array(8).keys()].map((i) => cell({ species: 'alien', lookSeed: 500 + i * 7 }, i, { dead: i === 7 })).join('');
+document.getElementById('o').innerHTML = Object.keys(OBJECTS).map((o) => `<svg class="art" viewBox="0 0 100 100"><title>${o}</title>${objectSvg(o)}</svg>`).join('') + `<svg class="art" viewBox="0 0 100 100">${padSvg()}</svg>`;
+const bigs = ['bed', 'table', 'sofa', 'bench', 'shelf', 'rug', 'pew', 'sleeppod', 'hydro', 'console', 'coffin', 'sarcophagus', 'boat'];
+document.getElementById('big').innerHTML = bigs.map((k) => `<svg class="art" viewBox="0 0 200 100">${pieceSvg({ kind: k, w: 2, h: 1 })}</svg>`).join('')
+  + ['bed', 'coffin', 'sarcophagus'].map((k) => `<svg class="art" viewBox="0 0 100 200" style="height:164px">${pieceSvg({ kind: k, w: 1, h: 2 })}</svg>`).join('')
+  + `<svg class="art" viewBox="0 0 200 200" style="height:164px">${pieceSvg({ kind: 'rug', w: 2, h: 2 })}</svg>`
+  + ['manor', 'zeta', 'haunted', 'egypt', 'heist'].map((t) => `<span style="width:82px;display:inline-block">${emblemSvg(t)}</span>`).join('');
 </script>
