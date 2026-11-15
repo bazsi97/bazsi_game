@@ -1,1 +1,8 @@
-{"type":"module","private":true,"name":"murdoku","scripts":{"test":"node tests/fingerprint.mjs && node tests/run.mjs && node tests/themes.mjs 15 && node tests/recipe2.mjs 15"}}
+{
+  "type": "module",
+  "private": true,
+  "name": "murdoku",
+  "scripts": {
+    "test": "node tests/fingerprint.mjs && node tests/run.mjs && node tests/themes.mjs 15 && node tests/recipe2.mjs 15 && node tests/recipe3.mjs"
+  }
+}

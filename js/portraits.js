@@ -58,6 +58,13 @@ const HATS = {
   chef: `<path class="f" d="M34 36 L34 20 C24 20 24 6 36 8 C38 0 62 0 64 8 C76 6 76 20 66 20 L66 36 Z"/>
          <path class="t" d="M42 20 L42 34 M50 18 L50 34 M58 20 L58 34"/>`,
   beret: `<path class="d" d="M28 36 C26 22 46 18 66 22 C78 26 76 34 70 36 Z"/><path class="s" d="M50 20 l2 -6"/>`,
+  // the North Pole: an elf's pointed cap with a bell, and Santa's own
+  elf: `<path class="d" d="M28 36 C27 17 44 8 58 10 C68 12 76 9 83 3 C85 15 77 23 69 23 C72 27 72 32 72 36 Z"/>
+        <circle class="o2" fill="${C.gold}" cx="84" cy="4" r="4.500"/>
+        <path class="f" d="M27 31 L33 39 L39 31 L45 39 L50 31 L55 39 L61 31 L67 39 L73 31 L73 38 Q50 44 27 38 Z"/>`,
+  santa: `<path class="d" d="M28 34 C29 13 50 5 66 11 C79 16 85 27 82 38 C76 29 70 29 68 34 Z"/>
+          <circle class="f" cx="83" cy="41" r="6.500"/>
+          <path class="f" d="M26 30 H74 Q79 35.500 74 41 H26 Q21 35.500 26 30 Z"/>`,
   // the Pharaoh's striped headcloth
   nemes: `<path class="o" fill="${C.gold}" d="M22 80 L29 30 C31 13 69 13 71 30 L78 80 L64 80 L62 46 C60 36 56 32 50 32 C44 32 40 36 38 46 L36 80 Z"/>
           <path class="s" d="M27 44 L37 46 M25 56 L36 58 M24 68 L36 70 M73 44 L63 46 M75 56 L64 58 M76 68 L64 70 M33 24 Q50 14 67 24" style="stroke:${C.lapis};stroke-width:3.5"/>
@@ -70,6 +77,9 @@ const FACIAL = {
   beard: `<path class="d" d="M32 50 C32 66 40 76 50 76 C60 76 68 66 68 50 C66 58 62 62 58 62 C56 58 44 58 42 62 C38 62 34 58 32 50 Z"/>`,
   chops: `<path class="d" d="M32 44 C32 56 36 62 40 62 C40 56 36 52 36 44 Z M68 44 C68 56 64 62 60 62 C60 56 64 52 64 44 Z"/>`,
   goatee: `<path class="d" d="M46 66 C46 72 54 72 54 66 C52 68 48 68 46 66 Z M45 57 Q50 55 55 57 L55 58.5 Q50 57 45 58.5 Z"/>`,
+  // Santa's
+  santabeard: `<path class="d" d="M30 50 C28 76 38 94 50 94 C62 94 72 76 70 50 C67 60 60 60 50 62 C40 60 33 60 30 50 Z"/>
+               <path class="d" d="M50 59 C45 54 37 56 35 63 C41 65 47 63 50 61 C53 63 59 65 65 63 C63 56 55 54 50 59 Z"/>`,
   // the braided false beard of Egyptian officials
   ebeard: `<path class="d" d="M46.500 67 H53.500 L52 82 H48 Z"/>`,
 };
@@ -129,6 +139,12 @@ const OUTFITS = {
     <circle class="o2" fill="${C.gold}" cx="38" cy="88" r="2"/><circle class="o2" fill="${C.gold}" cx="62" cy="88" r="2"/>`,
   clergy: `<path class="o" fill="${C.dark}" d="${SHOULDERS}"/>
     <rect class="o2" fill="${C.dark}" x="42" y="73" width="16" height="7"/><rect class="p" x="47" y="74.500" width="6" height="4.500"/>`,
+  // the North Pole: a jagged elf collar with a bell, and Santa's fur-trimmed coat
+  elf: `<path class="d" d="${SHOULDERS}"/>
+    <path class="f" d="M30 75 L35 89 L42 79 L50 92 L58 79 L65 89 L70 75 Q50 83 30 75 Z"/>
+    <circle class="o2" fill="${C.gold}" cx="50" cy="94" r="3.600"/>`,
+  santa: `<path class="d" d="${SHOULDERS}"/>
+    <path class="f" d="M43 76 H57 V100 H43 Z"/><path class="f" d="M30 75 Q50 88 70 75 L72 81 Q50 95 28 81 Z"/>`,
   // white linen and a broad jewelled collar in the wearer's colour
   ecollar: `<path class="f" d="${SHOULDERS}"/>
     <path class="d" d="M30 76 Q50 92 70 76 L82 82 Q50 122 18 82 Z"/>
@@ -171,6 +187,20 @@ export function makeLook(person) {
     look.kohl = true;
     look.earrings = tone.chance(0.5);
   }
+  if (person.culture === 'xmas') {
+    // elves: a pointed cap in a festive colour, pointed ears, rosy cheeks, the odd old-timer's beard
+    look.elf = true;
+    look.hat = 'elf';
+    look.hatInk = tone.pick(['#2e8b4e', '#c8372d', '#3f7a52', '#a8402e', '#2f6fc2', '#8a4fc0']);
+    look.outfit = 'elf';
+    look.facial = !f && tone.chance(0.22) ? 'beard' : null;
+    look.accessory = tone.chance(0.15) ? 'glasses' : null;
+    if (look.hair === 'bald' || look.hair === 'bun') look.hair = f ? 'bob' : 'part';
+  }
+  if (person.santa) {
+    Object.assign(look, { f: false, elf: false, hair: 'bald', hat: 'santa', hatInk: '#c8372d', outfit: 'santa', facial: 'santabeard',
+      accessory: null, skin: '#f8dcc0', hairInk: '#fffaf0', earrings: false, rx: 19, ry: 21 });
+  }
   return look;
 }
 
@@ -195,7 +225,9 @@ function humanPortraitSvg(person, { dead = false, color = null, tint = null, loo
   if (LONG_BACK.has(L.hair) && L.hat !== 'chef') parts.push(`<g class="hair">${HAIR[L.hair]}</g>`);
   parts.push(`<g class="outfit">${OUTFITS[L.outfit]}</g>`);
   parts.push(`<g class="skin"><path class="f" d="M43 62 L43 78 Q50 81 57 78 L57 62 Z"/></g><path class="sh" d="M43 66 Q50 72 57 66 L57 70 Q50 75 43 70 Z"/>`);
-  parts.push(`<g class="skin"><circle class="f" cx="${cx - L.rx}" cy="${cy + 2}" r="4.5"/><circle class="f" cx="${cx + L.rx}" cy="${cy + 2}" r="4.5"/>`);
+  if (L.elf) {
+    parts.push(`<g class="skin"><path class="f" d="M${cx - L.rx + 2} ${cy - 5} L${cx - L.rx - 13} ${cy - 9} L${cx - L.rx + 1} ${cy + 9} Z"/><path class="f" d="M${cx + L.rx - 2} ${cy - 5} L${cx + L.rx + 13} ${cy - 9} L${cx + L.rx - 1} ${cy + 9} Z"/>`);
+  } else parts.push(`<g class="skin"><circle class="f" cx="${cx - L.rx}" cy="${cy + 2}" r="4.5"/><circle class="f" cx="${cx + L.rx}" cy="${cy + 2}" r="4.5"/>`);
   parts.push(`<ellipse class="f" cx="${cx}" cy="${cy}" rx="${L.rx}" ry="${L.ry}"/></g>`);
   if (L.earrings) parts.push(`<circle class="o2" fill="${C.gold}" cx="${cx - L.rx}" cy="${cy + 9}" r="2.6"/><circle class="o2" fill="${C.gold}" cx="${cx + L.rx}" cy="${cy + 9}" r="2.6"/>`);
   if (!dead) parts.push(`<circle class="n" fill="${C.red}" cx="${cx - L.rx + 6}" cy="${cy + 8}" r="4" opacity="0.28"/><circle class="n" fill="${C.red}" cx="${cx + L.rx - 6}" cy="${cy + 8}" r="4" opacity="0.28"/>`);
@@ -388,6 +420,8 @@ const MOTHER = `
 const HOSTS = {
   manor: { person: { gender: 'm', lookSeed: 77 }, color: '#2f4a6b', look: { hair: 'part', hat: 'peaked', facial: 'handlebar', outfit: 'uniform', accessory: null, skin: '#f2c9a0', hairInk: '#4c3222', hatInk: '#2f4a6b', rx: 18, ry: 21, nose: 0, mouth: 0, brows: 0 } },
   haunted: { person: { gender: 'f', lookSeed: 12 }, color: '#5b4a78', look: { f: true, hair: 'bun', hat: null, facial: null, outfit: 'maid', accessory: 'glasses', skin: '#f8dcc0', hairInk: '#9c9aa8', rx: 18, ry: 21, nose: 1, mouth: 0, brows: 2, earrings: false } },
+  // Mrs Claus
+  xmas: { person: { gender: 'f', lookSeed: 5 }, color: '#c8372d', look: { f: true, hair: 'bun', hat: null, facial: null, outfit: 'santa', accessory: 'glasses', skin: '#f8dcc0', hairInk: '#e9dcc2', rx: 19, ry: 21, nose: 1, mouth: 0, brows: 2, earrings: false } },
   egypt: { person: { gender: 'm', lookSeed: 31 }, color: '#8a7a4a', look: { hair: 'part', hat: 'fedora', facial: 'beard', outfit: 'suit', accessory: 'glasses', skin: '#e3ad7f', hairInk: '#7a4a26', hatInk: '#8a6a3a', rx: 18, ry: 21, nose: 3, mouth: 0, brows: 0 } },
 };
 

@@ -1,9 +1,10 @@
 // UI: front page (pick a theme and a case), the case itself, taps, saved progress.
 
 import { generatePuzzle, withLiar, CURRENT_GEN } from './generator.js';
+import { viewFor, truthOf } from './generator3.js';
 import { clueText, isFree, canStand, cluesAbout } from './clues.js';
-import { OBJECTS, THEMES } from './themes.js';
-import { objectSvg, pieceSvg, patternDefsSvg, padSvg, emblemSvg } from './art.js';
+import { OBJECTS, THEMES, GIFT_WRAPS, SHAPES } from './themes.js';
+import { objectSvg, pieceSvg, patternDefsSvg, padSvg, emblemSvg, giftSvg } from './art.js';
 import { portraitSvg, hostSvg } from './portraits.js';
 import { logicalSolve } from './solver.js';
 import { explainNext, alibiTable, whyNotKiller } from './hints.js';
@@ -47,9 +48,13 @@ function saveStore() {
       // gen: the recipe that made this case, so it is rebuilt identically next time
       gen: P.gen,
       placed: S.placed, marks: [...S.marks], notes: notesToJson(S.notes), hints: S.hints, elapsed: S.elapsed,
-      solved: S.solved, touched: S.placed.some((x) => x != null) || S.marks.size > 0 || S.notes.size > 0,
+      solved: S.solved,
+      // any mark of yours makes the case "started": people, crosses, notes, and guesses pencilled on masks or presents
+      touched: S.placed.some((x) => x != null) || S.marks.size > 0 || S.notes.size > 0
+        || !!S.guesses?.some((g) => g != null) || !!S.gifts?.some((g) => g != null),
       liarKnown: S.liarKnown || undefined, suspect: S.suspect ?? undefined,
       guesses: S.guesses?.some((g) => g != null) ? S.guesses : undefined, misses: S.misses || undefined,
+      gifts: S.gifts?.some((g) => g != null) ? S.gifts : undefined,
     };
   }
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch { /* ignore */ }
@@ -123,6 +128,22 @@ const EDITIONS = {
       '<b>The Pyramid</b> (Medium and Hard): the board is a stepped pyramid. Every <b>row</b> holds exactly one person; a column holds one at most, and some columns stay empty.',
     ],
   },
+  xmas: {
+    blurb: 'The North Pole. Somebody has done Santa in. Again. Thirty cases at each desk.',
+    hostName: 'Mrs Claus',
+    hello: 'Oh, detective, thank goodness you are here. Somebody has done Santa in. Again. Mind the tinsel.',
+    desks: {
+      easy: ['The Naughty List', 'Two elves are on the naughty list. They lie, and one of them did it.'],
+      medium: ['Wrapped Presents', 'Three presents are still wrapped. Which toy is under which wrapping?'],
+      hard: ['The Smudged List', 'Presents to work out, and one name on the naughty list is smudged.'],
+    },
+    intro: [
+      'Santa is the victim. Every time. He always pulls through in the end, so do not feel too bad about it.',
+      '<b>The Naughty List</b> (Easy and Hard): two elves are on it. Everyone on the naughty list <b>lies</b>: whatever they say is false. Everyone else tells the truth. And the killer is always on the list.',
+      '<b>Wrapped presents</b> (Medium and Hard): three squares hold a present. You are told which three toys are inside, but not which toy is under which wrapping. Statements such as "beside the drum" let you work it out. Tap a present to note your guess on it.',
+      'On <b>Hard</b>, one name on the naughty list is <b>smudged</b>. Work out which elf it is: only one choice lets everybody fit.',
+    ],
+  },
 };
 const COMING_SOON = [['heist', 'The Midnight Heist', 'Security cameras that see along their row']];
 
@@ -132,23 +153,26 @@ const FLOORS = {
   dining: '#fbe6a2', study: '#d5e2c2', hall: '#ece4d2', conservatory: '#cdeccf', cellar: '#d8cfc4', ballroom: '#f6dfee',
   airlock: '#cfd9e8', hydroponics: '#c3e9c6', lab: '#d0ebef', reactor: '#f8d7c2', mess: '#f5e7b6', sleepbay: '#dad3f2', bridge: '#c8d8f4', vault: '#e4cfea',
   graveyard: '#b7d2b1', seance: '#dac6e6', crypt: '#cdcdda', attic: '#e6d2b6', chapel: '#eadfc0', hgallery: '#e8c8c8', hbedroom: '#c9d8e8', music: '#d5e5cf', hparlour: '#f0d6c4',
+  yard: '#dcebf7', grove: '#d2e6f0', workshop: '#f3dcb4', stable: '#ecd9b8', grotto: '#f6d0c8', bakery: '#fbe6a2', mailroom: '#d5e2c2', shed: '#d9d4e8', bunks: '#cfe6d3', greathall: '#f4d8de',
   burial: '#ead59c', treasury: '#f6dc8a', embalm: '#cde5de', temple: '#f2caa6', throne: '#e9c9df', scribes: '#eedcc4', nile: '#b4e2d0', court: '#f3e4b2',
 };
 
 // Manor keys stay "medium-3" (saved progress predates themes); others are "zeta-medium-3".
 const caseKey = (t, d, n) => (t === 'manor' ? `${d}-${n}` : `${t}-${d}-${n}`);
 const parseKey = (k) => {
-  const m = /^(?:(zeta|haunted|egypt)-)?(easy|medium|hard)-(\d+)$/.exec(k || '');
+  const m = /^(?:(zeta|haunted|egypt|xmas)-)?(easy|medium|hard)-(\d+)$/.exec(k || '');
   return m ? [m[1] || 'manor', m[2], Number(m[3])] : null;
 };
 const casesOf = (t, d) => Object.entries(store.progress).filter(([k]) => { const c = parseKey(k); return c && c[0] === t && c[1] === d; });
 const solvedCount = (t, d) => casesOf(t, d).filter(([, v]) => v.solved).length;
 const played = (v) => !!v && (v.solved || v.touched);
 // the lowest case number not yet played, so solved cases never come round again
+// (null once a theme with a fixed number of cases has none left)
+const limitOf = (t) => THEMES[t].caseLimit || Infinity;
 function nextNewCase(t, d) {
   let n = 1;
   while (played(store.progress[caseKey(t, d, n)])) n++;
-  return n;
+  return n <= limitOf(t) ? n : null;
 }
 const inProgress = (t, d) => casesOf(t, d).filter(([, v]) => !v.solved && v.touched)
   .map(([k]) => parseKey(k)[2]).sort((a, b) => a - b);
@@ -176,6 +200,7 @@ function setHash(h) {
 function openCase(t, d, n) {
   if (S && P) saveStore();
   n = Math.max(1, n);
+  if (n > limitOf(t)) return showHome();
   const key = caseKey(t, d, n);
   const saved = store.progress[key];
   // A case keeps the recipe it was first made with, so a saved board always fits its puzzle.
@@ -213,6 +238,8 @@ function openCase(t, d, n) {
     misses: keep?.misses ?? 0,
     alibiSel: null,
     legendSel: null,
+    // the North Pole: which toy you think each wrapped present hides (a note for yourself)
+    gifts: keep?.gifts ?? (P.presents ? P.presents.cells.map(() => null) : null),
   };
   setHash(`#${P.key}`);
   renderPage();
@@ -243,7 +270,10 @@ function withCurrentNames(text) {
 }
 
 // The puzzle as it really is: on Hard Zeta-9 the impostor's statement is false.
-const truthView = () => (P.impostor >= 0 ? withLiar(P, P.impostor) : P);
+// At the North Pole it is everyone on the naughty list, the smudged name included.
+const truthView = () => (P.naughty ? truthOf(P) : P.impostor >= 0 ? withLiar(P, P.impostor) : P);
+// The puzzle as it would be if person k were the hidden liar.
+const liarView = (k) => (P.naughty ? viewFor(P, [...P.naughty.known, k]) : withLiar(P, k));
 
 // Egypt with masks: every mask is in the right place, and the killer still has to be named.
 const allCorrect = () => S.placed.every((x, k) => x === P.solution[k]);
@@ -294,13 +324,15 @@ function renderHome() {
     const [beat, blurb] = E.desks[d];
     const open = inProgress(t, d).filter((n) => caseKey(t, d, n) !== store.last).slice(0, 4);
     const next = nextNewCase(t, d);
+    const limit = THEMES[t].caseLimit;
     return `
       <article class="desk desk-${d}">
-        <div class="desk-head"><span class="desk-stars">${D.stars}</span><span class="desk-solved">${solvedCount(t, d)} solved</span></div>
+        <div class="desk-head"><span class="desk-stars">${D.stars}</span><span class="desk-solved">${solvedCount(t, d)}${limit ? ` of ${limit}` : ''} solved</span></div>
         <h3>${D.name}</h3>
         <div class="desk-beat">${beat}</div>
         <p>${blurb}</p>
-        <button class="btn primary" data-act="open" data-case="${caseKey(t, d, next)}">New case · No. ${next}</button>
+        ${next ? `<button class="btn primary" data-act="open" data-case="${caseKey(t, d, next)}">New case · No. ${next}${limit ? ` of ${limit}` : ''}</button>`
+    : `<p class="desk-done">${solvedCount(t, d) >= limit ? `All ${limit} cases closed. Well done!` : `All ${limit} cases opened.`}</p>`}
         ${open.length ? `<div class="desk-open">In progress: ${open.map((n) => `<button data-act="open" data-case="${caseKey(t, d, n)}">No. ${n}</button>`).join(' ')}</div>` : ''}
       </article>`;
   }).join('');
@@ -355,6 +387,16 @@ function showIntro(t) {
 }
 
 function twistLine() {
+  if (P.naughty || P.presents) {
+    const bits = [];
+    if (P.naughty) {
+      bits.push(P.naughty.hidden >= 0
+        ? 'Everyone on the <b>naughty list</b> is lying, the killer is on it, and one name is <b>smudged</b>.'
+        : 'Everyone on the <b>naughty list</b> is lying, and the killer is one of them.');
+    }
+    if (P.presents) bits.push('Three <b>presents</b> are still wrapped: work out which toy is under which wrapping.');
+    return bits.join(' ');
+  }
   if (P.impostor >= 0) return 'One crew member is a <b>human in disguise</b>, and their statement is false.';
   if (P.unmask) return 'Place the <b>masks</b>. Then use the alibis to work out who hid behind the killer\'s mask.';
   if (P.rules?.ghost) return 'The <b>ghost</b> can stand inside furniture.';
@@ -396,6 +438,7 @@ function renderPage() {
         </section>
         <section class="board-wrap">${names}<div class="accuse-slot"></div>${boardSvg()}</section>
         <section class="dossier">
+          ${P.naughty ? '<div class="naughty-list"></div>' : ''}
           <h3 class="section-title">${P.unmask ? 'The masks' : 'The suspects'}</h3>
           <div class="cards">${P.people.map(cardHtml).join('')}</div>
           ${P.unmask ? `<h3 class="section-title">The alibis</h3>
@@ -449,10 +492,14 @@ const colourNames = (html) => html.replace(/data-who="(\d+)"/g, (_, j) => `style
 function cardHtml(person, k) {
   const said = colourNames(person.clues.map((c) => clueHtml(person, c)).join(' '));
   const clues = person.isVictim ? `<b>The victim.</b> Alone with the murderer.${said ? ` ${said}` : ''}` : said;
-  const lie = P.impostor >= 0 && !person.isVictim
-    ? `<span class="lie-tag" role="button" tabindex="0" data-act="suspect" data-k="${k}" aria-label="Mark ${person.name} as the liar">lying?</span>` : '';
+  // the North Pole: listed names are stamped; with a smudged name about, the rest can be suspected
+  const listed = !!P.naughty?.known.includes(k);
+  const lie = person.isVictim ? ''
+    : listed ? '<span class="stamp naughty">naughty</span>'
+      : P.impostor >= 0 ? `<span class="lie-tag" role="button" tabindex="0" data-act="suspect" data-k="${k}" aria-label="Mark ${person.name} as the liar">${P.naughty ? 'naughty?' : 'lying?'}</span>`
+        : P.naughty ? '<span class="stamp nice">nice</span>' : '';
   return `
-    <button class="card ${person.isVictim ? 'victim' : ''} ${person.ghost ? 'ghost' : ''}" data-person="${k}" aria-label="${person.name}" style="--pc:${inkOf(k)};--pc-tint:${tintOf(k)}">${lie}
+    <button class="card ${person.isVictim ? 'victim' : ''} ${person.ghost ? 'ghost' : ''} ${listed ? 'naughty' : ''}" data-person="${k}" aria-label="${person.name}" style="--pc:${inkOf(k)};--pc-tint:${tintOf(k)}">${lie}
       <div class="photo">${portraitSvg(person, { dead: person.isVictim, color: inkOf(k), tint: tintOf(k) })}</div>
       <div class="meta">
         <div class="name ${shortName(person).length > 7 ? 'long' : ''}">${shortName(person)}</div>
@@ -470,6 +517,7 @@ function legendHtml() {
   return `<div class="legend" aria-label="Key">
       ${seats.length ? `<div class="legend-row"><span class="legend-label">Can be occupied</span>${seats.map(chip).join('')}</div>` : ''}
       ${blocks.length ? `<div class="legend-row blocks"><span class="legend-label">Blocks the square</span>${blocks.map(chip).join('')}</div>` : ''}
+      ${P.presents ? `<div class="legend-row toys"><span class="legend-label">Inside the presents</span>${P.presents.kinds.map((o) => `<span class="chip still">${miniIcon(o)}${OBJECTS[o].name}</span>`).join('')}</div>` : ''}
     </div>`;
 }
 
@@ -569,7 +617,11 @@ function boardSvg() {
     const cell = P.cells[i];
     if (!cell.obj || (cell.piece != null && drawn.has(cell.piece))) continue;
     const [x, y] = xy(i);
-    out.push(`<g class="obj" data-cell="${i}" transform="translate(${x + 8} ${y + 8}) scale(0.84)">${objectSvg(cell.obj)}</g>`);
+    // a present stays wrapped until the case is closed; then it shows the toy inside
+    const art = cell.gift == null ? objectSvg(cell.obj)
+      : S?.solved ? `${objectSvg(P.presents.hidden[cell.gift])}<circle class="o2" fill="${GIFT_WRAPS[cell.gift].paper}" cx="88" cy="12" r="9"/>`
+        : giftSvg(GIFT_WRAPS[cell.gift]);
+    out.push(`<g class="obj" data-cell="${i}" transform="translate(${x + 8} ${y + 8}) scale(0.84)">${art}</g>`);
   }
   // the outer wall follows the shape of the board
   const outer = [];
@@ -583,6 +635,19 @@ function boardSvg() {
     if (c === w - 1 || !cellOk(i + 1)) outer.push(`M${x + CELL} ${y}V${y + CELL}`);
   }
   out.push(`<path class="outer" d="${outer.join('')}"/>`);
+  if (P.themeId === 'xmas') {
+    // snow lies on every wall that faces north, and a tree-shaped board gets its star
+    for (let i = 0; i < N; i++) {
+      if (!cellOk(i) || (i >= w && cellOk(i - w))) continue;
+      const [x, y] = xy(i);
+      out.push(`<path class="snowcap" d="M${x - 4} ${y + 3} C${x + 4} ${y - 11} ${x + 24} ${y - 12} ${x + 34} ${y - 5} C${x + 44} ${y - 13} ${x + 62} ${y - 12} ${x + 70} ${y - 5} C${x + 80} ${y - 12} ${x + 98} ${y - 10} ${x + 104} ${y + 3} Z"/>`);
+    }
+    if (SHAPES[P.shape]?.tree) {
+      const top = P.cells.findIndex((c) => !c.void);
+      const cx = (top % w) * CELL + CELL / 2;
+      out.push(`<path class="treestar" transform="translate(${cx} -24) scale(1.5)" d="M0 -12 L3.200 -3.800 L12 -3.400 L5.200 2 L7.400 10.500 L0 5.800 L-7.400 10.500 L-5.200 2 L-12 -3.400 L-3.200 -3.800 Z"/>`);
+    }
+  }
   // room name tags, bottom-right square of each room
   P.areas.forEach((a, id) => {
     let best = -1;
@@ -667,8 +732,19 @@ function renderDynamic() {
     if ((S.solved || accusing()) && k === P.murderer) cls.push('killer');
     out.push(`<g class="${cls.join(' ')}" style="--pc:${inkOf(k)}"><g transform="translate(${cx} ${cy})"><circle class="halo" r="38"/><circle class="disc" r="33"/><text y="${CAP_OFFSET(42)}">${person.initial}</text></g></g>`);
   }
+  if (S.gifts && !S.solved) {
+    // your guess at what a present hides, pinned to its corner
+    S.gifts.forEach((kind, g) => {
+      if (!kind) return;
+      const i = P.presents.cells[g];
+      const x = (i % w) * CELL + CELL - 40, y = Math.floor(i / w) * CELL + 2;
+      out.push(`<g class="gift-guess"><circle cx="${x + 19}" cy="${y + 19}" r="19"/><g transform="translate(${x + 4} ${y + 4}) scale(0.3)">${objectSvg(kind)}</g></g>`);
+    });
+  }
   dyn.innerHTML = out.join('');
   S.fresh = null;
+  const list = $('.naughty-list');
+  if (list) list.innerHTML = naughtyListHtml();
 
   const refs = S.selected != null && store.settings.highlight ? referencedPeople(S.selected) : new Set();
   document.querySelectorAll('.card').forEach((el) => {
@@ -680,6 +756,7 @@ function renderDynamic() {
     el.classList.toggle('ref', refs.has(k));
     el.classList.toggle('suspect', k === S.suspect && !(S.liarKnown && k === P.impostor));
     el.classList.toggle('liar', S.liarKnown && k === P.impostor);
+    if (P.naughty && k === P.impostor) $('.lie-tag', el).textContent = S.liarKnown ? 'naughty' : 'naughty?';
     el.setAttribute('aria-pressed', String(k === S.selected));
   });
   document.querySelectorAll('.chip').forEach((el) => el.classList.toggle('on', el.dataset.kind === S.legendSel));
@@ -722,7 +799,7 @@ function clueHighlights(clues) {
   for (const c of clues) {
     for (let i = 0; i < w * h; i++) {
       if (P.cells[i].void) continue;
-      if (c.obj && P.cells[i].obj === c.obj) out.push(cellRect(i, 'clue-hi', 5, 12));
+      if (c.obj && (P.cells[i].obj === c.obj || (P.cells[i].gift != null && P.presents.kinds.includes(c.obj)))) out.push(cellRect(i, 'clue-hi', 5, 12));
       else if (c.area != null && P.cells[i].area === c.area) out.push(cellRect(i, 'area-hi'));
       else if (c.type === 'edge' && EDGE[c.side](i)) out.push(cellRect(i, 'area-hi'));
     }
@@ -900,6 +977,7 @@ function tapCell(i) {
     setStatus(defaultStatus());
     return;
   }
+  if (P.cells[i].gift != null && S.selected == null && !S.crossMode) return cycleGift(P.cells[i].gift);
   const here = P.cells[i].obj;
   if (S.crossMode ? !isFree(P, i) : S.selected == null ? !isFree(P, i) : !canStand(P, S.selected, i)) {
     if (S.selected != null) play('bump');
@@ -916,6 +994,33 @@ function tapCell(i) {
   paint(i, mode);
   play(PAINT_SOUND[mode]);
   afterChange();
+}
+
+// The North Pole: tap a wrapped present to note which toy you think is inside (tap again for the
+// next toy, and once more to clear it). The note is only for you; nothing checks it.
+function cycleGift(g) {
+  const kinds = P.presents.kinds;
+  const at = S.gifts[g] == null ? 0 : kinds.indexOf(S.gifts[g]) + 1;
+  S.gifts[g] = at >= kinds.length ? null : kinds[at];
+  play('note');
+  renderDynamic();
+  const wrap = cap(GIFT_WRAPS[g].name);
+  toast(S.gifts[g] ? `${wrap} present: noted as the ${OBJECTS[S.gifts[g]].name}. Tap again to change.` : `${wrap} present: note cleared. Nobody can stand on a present.`, false);
+  saveStore();
+}
+
+// The naughty list as it hangs above the suspects.
+function naughtyListHtml() {
+  const names = P.naughty.known.map((k) => `<span class="nl-name" style="color:${inkOf(k)}">${P.people[k].name}</span>`);
+  if (P.naughty.hidden >= 0) {
+    names.push(S.liarKnown
+      ? `<span class="nl-name" style="color:${inkOf(P.naughty.hidden)}">${P.people[P.naughty.hidden].name}</span>`
+      : '<span class="nl-name smudged" aria-label="a smudged name">Mmmmm</span>');
+  }
+  const note = P.naughty.hidden >= 0 && !S.liarKnown
+    ? 'Both of them lie, and one of them did it. One name is smudged: tap "naughty?" on a card to mark your suspect.'
+    : 'Whatever they say is false. One of them did it.';
+  return `<span class="nl-title">The Naughty List</span>${names.join('')}<span class="nl-note">${note}</span>`;
 }
 
 // Long press: commit the selected person to this square (or take them back off it).
@@ -1015,6 +1120,7 @@ function closeCase() {
   S.solved = true;
   S.selected = null;
   saveStore();
+  if (P.presents) $('#board').outerHTML = boardSvg(); // the presents come unwrapped
   renderDynamic();
   setStatus(defaultStatus());
   setTimeout(showSolved, 900);
@@ -1106,14 +1212,15 @@ function liarHint() {
     hideHintSlip();
     play('hint');
     renderDynamic();
-    toast(`One statement is a lie. Look closely at ${name}. Tap Hint again for a clue.`, false);
+    toast(P.naughty ? `One name on the list is smudged. Look closely at ${name}. Tap Hint again for a clue.`
+      : `One statement is a lie. Look closely at ${name}. Tap Hint again for a clue.`, false);
   } else if (S.hintStage === 1) {
     S.hintStage = 2;
     // find a wrong suspicion whose collapse is easy to describe (someone else gets stranded)
     let other = -1, stuck = 'someone';
     for (const [k, pr] of P.people.entries()) {
-      if (pr.isVictim || k === L) continue;
-      const r = logicalSolve(withLiar(P, k), {});
+      if (pr.isVictim || k === L || P.naughty?.known.includes(k)) continue;
+      const r = logicalSolve(liarView(k), {});
       if (other < 0 || (r.stuck >= 0 && r.stuck !== k)) {
         other = k;
         stuck = r.stuck >= 0 ? P.people[r.stuck].name : 'someone';
@@ -1122,19 +1229,25 @@ function liarHint() {
     }
     play('hint');
     renderDynamic();
-    showHintSlip(name, [
+    showHintSlip(name, P.naughty ? [
+      'Two elves are on the naughty list, and both of them lie. One name is legible; the other is smudged.',
+      P.presents
+        ? `Try each elf as the smudged name. If it were ${P.people[other].name}, somebody would end up with nowhere to stand, however the presents are wrapped.`
+        : `Try each elf as the smudged name. If it were ${P.people[other].name}, ${stuck} would end up with nowhere to stand.`,
+      `The same happens whoever you try, except ${name}. Only with ${name} lying as well does everybody fit.`,
+    ] : [
       'Exactly one crew member is a human in disguise, and only their statement is false.',
       `Try blaming each crew member in turn. If ${P.people[other].name} were the liar, ${stuck} would end up with nowhere to stand.`,
       `The same happens whoever you blame, except ${name}. Only with ${name}'s statement as the lie does everyone fit.`,
     ]);
-    setStatus(`Tap Hint once more to unmask ${name}.`);
+    setStatus(P.naughty ? 'Tap Hint once more to read the smudged name.' : `Tap Hint once more to unmask ${name}.`);
   } else {
     S.liarKnown = true;
     S.suspect = L;
     clearHint();
     play('place');
     renderDynamic();
-    toast(`${name} is the human! Their statement is false.`, false);
+    toast(P.naughty ? `The smudged name is ${name}. Their statement is false.` : `${name} is the human! Their statement is false.`, false);
   }
   saveStore();
 }
@@ -1289,13 +1402,15 @@ function showSolved() {
     ${face}
     <div class="caption">${unmasked ? `${unmasked.name}, ${unmasked.title}, behind the ${killer.title}.` : `${who}, ${killer.title}.`}</div>
     <p>${who} was alone with ${victim.name} in the <b>${room}</b>. ${store.detective ? `Well done, ${detective()}!` : 'Well done, detective!'}</p>
-    ${P.impostor >= 0 ? `<p>And the human in disguise? <b>${P.people[P.impostor].alienName}</b>, better known on Earth as <b>${P.people[P.impostor].earthName}</b>.</p>` : ''}
+    ${P.naughty?.hidden >= 0 ? `<p>The smudged name on the naughty list was <b>${P.people[P.naughty.hidden].name}</b>.</p>` : ''}
+    ${P.epilogue ? `<p class="epilogue">${P.epilogue}</p>` : ''}
+    ${P.impostor >= 0 && !P.naughty ? `<p>And the human in disguise? <b>${P.people[P.impostor].alienName}</b>, better known on Earth as <b>${P.people[P.impostor].earthName}</b>.</p>` : ''}
     ${killer.ghost ? '<p>The killer was the ghost, which makes the arrest awkward.</p>' : ''}
     <div class="stats"><span>Time ${fmtTime(S.elapsed)}</span><span>Hints ${S.hints}</span>${S.misses ? `<span>Wrong guesses ${S.misses}</span>` : ''}</div>
     <div class="actions">
       <button class="btn" data-act="close">View scene</button>
       <button class="btn" data-act="home">All cases</button>
-      <button class="btn primary" data-act="next">Next case ▸</button>
+      ${nextNewCase(P.themeId, P.desk) ? '<button class="btn primary" data-act="next">Next case ▸</button>' : ''}
     </div>`, 'extra');
 }
 
@@ -1319,6 +1434,7 @@ function showRules() {
     <p><b>Controls.</b> Tap a suspect to pick them. Then <b>tap</b> a square to pencil in their initial, or <b>swipe</b> across squares to note several at once. <b>Hold</b> a square to place them for good: their row and column get crossed out. Hold their letter to take them back off. Use <b>Cross</b> to tap or swipe ✕ onto squares yourself.</p>
     ${seats.length ? `<h4>Can be occupied</h4><div class="mini-legend">${legend(seats)}</div>` : ''}
     ${blocks.length ? `<h4>Blocks the square</h4><div class="mini-legend">${legend(blocks)}</div>` : ''}
+    ${P?.presents ? `<h4>Inside the presents (one each)</h4><div class="mini-legend">${legend(P.presents.kinds)}</div>` : ''}
     <label class="setting"><input type="checkbox" id="opt-autox" ${store.settings.autoX ? 'checked' : ''}> Cross out the row and column of everyone placed</label>
     <label class="setting"><input type="checkbox" id="opt-sound" ${store.settings.sound ? 'checked' : ''}> Sound effects</label>
     <label class="setting"><input type="checkbox" id="opt-highlight" ${store.settings.highlight ? 'checked' : ''}> Highlight what a selected statement mentions</label>
@@ -1350,7 +1466,7 @@ document.addEventListener('click', (ev) => {
     ({
       undo, hint, restart, cross: toggleCross, rules: showRules, close: closeModal, 'do-restart': doRestart,
       'close-hint': () => { hideHintSlip(); S.hintMarks = null; renderDynamic(); },
-      next: () => { closeModal(); const t = P.themeId, d = P.desk; saveStore(); openCase(t, d, nextNewCase(t, d)); },
+      next: () => { closeModal(); const t = P.themeId, d = P.desk; saveStore(); const n = nextNewCase(t, d); if (n) openCase(t, d, n); else showHome(); },
       theme: () => { store.theme = el.dataset.theme; saveStore(); play('select'); renderHome(); },
       intro: () => showIntro(el.dataset.theme),
       names: () => setEarthNames(el.dataset.earth === '1'),

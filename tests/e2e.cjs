@@ -34,12 +34,13 @@ const ok = (cond, msg) => { if (!cond) failures++; console.log(cond ? 'PASS' : '
     await p.evaluate((s) => { localStorage.clear(); if (s) localStorage.setItem('murdoku:v2', JSON.stringify(s)); }, store);
     return p;
   }
-  const seen = { seenIntro: { zeta: true, haunted: true, egypt: true } };
+  const seen = { seenIntro: { zeta: true, haunted: true, egypt: true, xmas: true } };
   const open = async (p, key) => { await p.goto(`${BASE}/${key ? `#${key}` : ''}`); await p.reload(); await p.waitForTimeout(500); };
   const gen = (p, theme, difficulty, seed, g) => p.evaluate(async ([theme, difficulty, seed, g]) => {
     const x = (await import('/js/generator.js')).generatePuzzle({ seed, difficulty, theme, gen: g });
     return { w: x.w, h: x.h, sol: x.solution, cells: x.cells, impostor: x.impostor ?? -1, ghost: x.people.findIndex((q) => q.ghost), victim: x.victim,
-      murderer: x.murderer, wears: x.unmask ? x.unmask.wears : null, pieces: (x.pieces || []).length, gen: x.gen, people: x.people.length };
+      murderer: x.murderer, wears: x.unmask ? x.unmask.wears : null, pieces: (x.pieces || []).length, gen: x.gen, people: x.people.length,
+      naughty: x.naughty || null, presents: x.presents || null, names: x.people.map((q) => q.name), shape: x.shape };
   }, [theme, difficulty, seed, g]);
   const xy = (p, i, w) => p.evaluate(([i, w]) => {
     const svg = document.getElementById('board');
@@ -156,7 +157,7 @@ const ok = (cond, msg) => { if (!cond) failures++; console.log(cond ? 'PASS' : '
   {
     const p = await newPage();
     await open(p, '');
-    ok(await count(p, '.edition:not(.soon)') === 4 && await count(p, '.edition.soon') === 1, 'front page: four worlds and one coming soon');
+    ok(await count(p, '.edition:not(.soon)') === 5 && await count(p, '.edition.soon') === 1, 'front page: five worlds and one coming soon');
     await p.locator('.edition[data-theme="egypt"]').click(); await p.waitForTimeout(200);
     ok((await p.locator('.desk-medium .desk-beat').textContent()) === 'The Pyramid', 'front page: Egypt desks describe the twists');
     await shot(p, 'e2e-home', true);
@@ -281,6 +282,97 @@ const ok = (cond, msg) => { if (!cond) failures++; console.log(cond ? 'PASS' : '
     for (let k = 0; k < g.sol.length; k++) await place(p, k, g.sol[k], g.w);
     await p.waitForTimeout(1300);
     ok(await count(p, '.extra') === 1, `L-shaped ${g.w}x${g.h} Manor case (No. ${seed}) solved`);
+    await p.context().close();
+  }
+
+  // ---------- 8. Who Killed Santa? ----------
+  {
+    const p = await newPage({ width: 390, height: 844 }, { seenIntro: {} });
+    // first visit: Mrs Claus explains the theme
+    await p.goto(`${BASE}/#xmas-easy-1`); await p.waitForTimeout(600);
+    ok(await count(p, '.overlay') === 1 && /Naughty List/.test(await p.locator('.overlay').textContent()), 'North Pole: the first visit explains the twists');
+    await p.locator('.overlay [data-act="close"]').click();
+    const e = await gen(p, 'xmas', 'easy', 1, 3);
+    ok(e.gen === 3 && e.names[e.victim] === 'Santa' && e.naughty.known.length === 2 && e.naughty.known.includes(e.murderer), 'North Pole easy: Santa is the victim and the killer is on the list');
+    ok(await count(p, '.naughty-list .nl-name') === 2 && await count(p, '.stamp.naughty') === 2 && await count(p, '.stamp.nice') === e.people - 3, 'North Pole easy: the list names two elves and every card is stamped');
+    ok(await count(p, '.snowcap') >= e.w, 'North Pole: snow lies on the walls');
+    await shot(p, 'e2e-xmas-easy', true);
+    // the first hint for a listed elf says their statement counts the other way round
+    await p.locator('[data-act="hint"]').click(); await p.waitForTimeout(150);
+    await p.locator('[data-act="hint"]').click(); await p.waitForTimeout(300);
+    ok(await p.locator('.hint-slip').isVisible(), 'North Pole easy: hints work');
+    await p.keyboard.press('Escape');
+    await place(p, 0, e.sol[0], e.w);
+    await p.reload(); await p.waitForTimeout(500);
+    ok((await stored(p)).progress['xmas-easy-1'].gen === 3 && await count(p, '.token') === 1, 'North Pole: progress is saved with its recipe and survives a reload');
+    for (let k = 1; k < e.sol.length; k++) await place(p, k, e.sol[k], e.w);
+    await p.waitForTimeout(1300);
+    ok(await count(p, '.extra') === 1 && await count(p, '.epilogue') === 1, 'North Pole easy: solved, and Santa pulls through');
+    await shot(p, 'e2e-xmas-solved');
+
+    // presents
+    await open(p, 'xmas-medium-1');
+    const m = await gen(p, 'xmas', 'medium', 1, 3);
+    ok(m.presents.cells.length === 3 && m.cells.every((c) => !['drum', 'teddy', 'train', 'horse', 'robot', 'top', 'duck', 'kite'].includes(c.obj)), 'North Pole medium: three presents, and the board does not give the toys away');
+    ok(await count(p, '.legend-row.toys .chip') === 3 && await count(p, '.naughty-list') === 0, 'North Pole medium: the key lists what is inside the presents');
+    await tap(p, m.presents.cells[0], m.w); await p.waitForTimeout(150);
+    ok(await count(p, '.gift-guess') === 1 && /noted as the/.test(await p.locator('.status').textContent()), 'North Pole medium: tapping a present notes a guess');
+    await p.reload(); await p.waitForTimeout(500);
+    ok(await count(p, '.gift-guess') === 1, 'North Pole medium: the guess survives a reload');
+    await p.locator('.card[data-person="0"]').click();
+    await tap(p, m.presents.cells[1], m.w); await p.waitForTimeout(150);
+    ok(/wrapped present\. Nobody can stand there/.test(await p.locator('.status').textContent()) && await count(p, '.token') === 0, 'North Pole medium: nobody can stand on a present');
+    await p.keyboard.press('Escape');
+    await shot(p, 'e2e-xmas-medium', true);
+    for (let k = 0; k < m.sol.length; k++) await place(p, k, m.sol[k], m.w);
+    await p.waitForTimeout(1300);
+    ok(await count(p, '.extra') === 1 && await count(p, '.gift-guess') === 0, 'North Pole medium: solved, and the presents come unwrapped');
+    await p.locator('.extra [data-act="close"]').click();
+    await shot(p, 'e2e-xmas-unwrapped');
+
+    // the smudged name
+    await open(p, 'xmas-hard-1');
+    const h = await gen(p, 'xmas', 'hard', 1, 3);
+    ok(h.naughty.known.length === 1 && h.naughty.hidden >= 0 && h.presents, 'North Pole hard: one name legible, one smudged, and presents');
+    ok(await count(p, '.nl-name.smudged') === 1 && await count(p, '.lie-tag') === h.people - 2 && await count(p, '.stamp.naughty') === 1, 'North Pole hard: the smudged name can be any other elf');
+    ok(!(await p.locator('.naughty-list').innerHTML()).includes(h.names[h.naughty.hidden]), 'North Pole hard: the page does not give the smudged name away');
+    await p.locator('.lie-tag').first().click(); await p.waitForTimeout(100);
+    ok(await count(p, '.card.suspect') === 1, 'North Pole hard: an elf can be marked as the suspect');
+    for (let n = 0; n < 3; n++) { await p.locator('[data-act="hint"]').click(); await p.waitForTimeout(250); }
+    ok(await count(p, '.nl-name.smudged') === 0 && await count(p, '.card.liar') === 1
+      && (await p.locator('.naughty-list').textContent()).includes(h.names[h.naughty.hidden]), 'North Pole hard: three hints read the smudged name');
+    await p.locator('[data-act="hint"]').click(); await p.waitForTimeout(150);
+    await p.locator('[data-act="hint"]').click(); await p.waitForTimeout(300);
+    ok(await p.locator('.hint-slip').isVisible(), 'North Pole hard: then the hints explain the next step');
+    await shot(p, 'e2e-xmas-hard', true);
+    await p.keyboard.press('Escape');
+    for (let k = 0; k < h.sol.length; k++) await place(p, k, h.sol[k], h.w);
+    await p.waitForTimeout(1300);
+    ok(await count(p, '.extra') === 1 && /smudged name/.test(await p.locator('.extra').textContent()), 'North Pole hard: solved');
+
+    // a tree-shaped board, on a tablet
+    await p.setViewportSize({ width: 1024, height: 768 });
+    await open(p, 'xmas-easy-8');
+    const t = await gen(p, 'xmas', 'easy', 8, 3);
+    ok(t.shape === 'tree5' && await count(p, '.treestar') === 1, 'North Pole: case 8 is a Christmas tree with a star');
+    await shot(p, 'e2e-xmas-tree');
+    for (let k = 0; k < t.sol.length; k++) await place(p, k, t.sol[k], t.w);
+    await p.waitForTimeout(1300);
+    ok(await count(p, '.extra') === 1, 'North Pole: the tree case can be solved');
+    await p.context().close();
+  }
+
+  // ---------- 9. thirty cases per desk at the North Pole ----------
+  {
+    const progress = {};
+    for (let n = 1; n <= 30; n++) progress[`xmas-easy-${n}`] = { gen: 3, solved: true, touched: true };
+    for (let n = 1; n <= 29; n++) progress[`xmas-medium-${n}`] = { gen: 3, solved: true, touched: true };
+    const p = await newPage({ width: 390, height: 844 }, { ...seen, theme: 'xmas', progress });
+    await open(p, '');
+    ok(/All 30 cases closed/.test(await p.locator('.desk-easy').textContent()) && await count(p, '.desk-easy .btn.primary') === 0, 'North Pole: a desk with all 30 solved offers no new case');
+    ok(/No\. 30 of 30/.test(await p.locator('.desk-medium .btn.primary').textContent()), 'North Pole: the last case is number 30');
+    await open(p, 'xmas-easy-31');
+    ok(await count(p, '#board') === 0 && await count(p, '.desks') === 1, 'North Pole: there is no case 31');
     await p.context().close();
   }
 

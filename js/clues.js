@@ -147,6 +147,7 @@ export const CLUES = {
 
 // "the bed" when there is only one of them; a two-square bed still counts once.
 function article(p, kind) {
+  if (p.presents?.kinds.includes(kind)) return 'the'; // one of each toy, under some wrapping
   const singles = p.cells.filter((c) => c.obj === kind && c.piece == null).length;
   const pieces = (p.pieces || []).filter((x) => x.kind === kind).length;
   return singles + pieces === 1 ? 'the' : /^[aeiou]/.test(OBJECTS[kind].name) ? 'an' : 'a';
@@ -157,7 +158,31 @@ const PRONOUN = { f: 'She', m: 'He', x: 'It' };
 export function clueText(p, person, clue) {
   if (clue.about != null) return `<i>Sensed:</i> ${CLUES[clue.type].text(p, clue, whoHtml(p, clue.about))}`;
   // masked figures have no pronoun: "The Jackal was beside an urn."
-  return CLUES[clue.type].text(p, clue, person.masked ? capFirst(person.name) : PRONOUN[person.gender] || 'They');
+  const text = CLUES[clue.type].text(p, clue, person.masked ? capFirst(person.name) : PRONOUN[person.gender] || 'They');
+  // a denial as it was spoken: "He was not beside the snowman." (recipe 3's naughty list)
+  return clue.neg && !/<b>not<\/b>/.test(text) ? text.replace(' was ', ' was <b>not</b> ') : text;
+}
+
+// ---------- wrapped presents (recipe 3) ----------
+// p.presents = { cells: [cell per present], kinds: [toys, sorted for display], hidden: [toy per present] }
+// On the board those squares hold obj 'gift' and gift = present number. Which toy is under
+// which wrapping is for the player to work out, so solvers look at every way round.
+
+export function withPresents(p, kinds) {
+  const cells = p.cells.map((c) => (c.gift != null ? { ...c, obj: kinds[c.gift] } : c));
+  return { ...p, cells, presents: undefined, world: kinds };
+}
+
+function permutations(xs) {
+  if (xs.length <= 1) return [xs.slice()];
+  const out = [];
+  xs.forEach((x, i) => { for (const rest of permutations([...xs.slice(0, i), ...xs.slice(i + 1)])) out.push([x, ...rest]); });
+  return out;
+}
+
+// Every way the toys could sit under the wrappings: one plain puzzle per way.
+export function presentWorlds(p) {
+  return p.presents ? permutations(p.presents.kinds).map((kinds) => withPresents(p, kinds)) : [p];
 }
 
 // Single-cell test for the statement's subject, honouring a lie.

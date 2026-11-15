@@ -12,6 +12,7 @@ import { OBJECTS, INDOOR_PATTERNS, ROLES, NAMES, THEMES, ALIEN_NAMES, EARTH_NAME
 import { trueCluesFor, ownDomainSize, clueHolds } from './clues.js';
 import { countSolutions, logicalSolve } from './solver.js';
 import { generatePuzzle2 } from './generator2.js';
+import { generatePuzzle3 } from './generator3.js';
 
 // relMax: how many person-to-person statements a case may use ("one row north of Hugo").
 // vague: whether the fuzzy ones ("somewhere north of Hugo") are allowed.
@@ -28,6 +29,8 @@ export const CURRENT_GEN = 2;
 // saved cases made with it are regenerated from their number every time they are opened.
 // The Manor keeps its original seed string for the same reason.
 export function generatePuzzle({ seed = 1, difficulty = 'medium', theme = 'manor', gen = 1, n = DIFFICULTY[difficulty].n } = {}) {
+  // recipe 3 belongs to the themes that were born with it; everything else stays on its own recipe
+  if ((THEMES[theme].minGen || 1) >= 3) return generatePuzzle3({ seed, difficulty, theme });
   if (gen >= 2 || (THEMES[theme].minGen || 1) >= 2) return generatePuzzle2({ seed, difficulty, theme });
   const p = generatePuzzle1({ seed, difficulty, theme, n });
   p.gen = 1;

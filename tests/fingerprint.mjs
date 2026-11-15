@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { generatePuzzle } from '../js/generator.js';
 import { hashString } from '../js/rng.js';
+import { THEMES } from '../js/themes.js';
 
 const FILE = new URL('./fingerprints.json', import.meta.url);
 const COUNT = 40;
@@ -33,6 +34,18 @@ for (const theme of ['manor', 'zeta', 'haunted', 'egypt']) {
       const essence = JSON.stringify([p.w, p.h, p.cells, p.areas, p.pieces, p.solution, p.impostor ?? null, p.unmask ?? null,
         p.people.map((x) => [x.name, x.role, x.isVictim, x.clues, x.lookSeed, x.earthName ?? null, x.ghost ?? null, x.mask ?? null])]);
       now[`g2:${theme}-${d}-${n}`] = hashString(essence).toString(16);
+    }
+  }
+}
+
+// Recipe 3 (Who Killed Santa?): every one of its cases, keys carry a "g3:" prefix.
+for (const theme of ['xmas']) {
+  for (const d of ['easy', 'medium', 'hard']) {
+    for (let n = 1; n <= THEMES[theme].caseLimit; n++) {
+      const p = generatePuzzle({ seed: n, difficulty: d, theme, gen: 3 });
+      const essence = JSON.stringify([p.w, p.h, p.cells, p.areas, p.pieces, p.solution, p.naughty ?? null, p.presents ?? null, p.attempt, p.headline, p.epilogue,
+        p.people.map((x) => [x.name, x.role, x.isVictim, x.clues, x.lookSeed])]);
+      now[`g3:${theme}-${d}-${n}`] = hashString(essence).toString(16);
     }
   }
 }

@@ -51,6 +51,10 @@ export const PATTERN_DEFS = `
 <pattern id="pt-hlines" width="10" height="10" patternUnits="userSpaceOnUse">
   <path class="pt" d="M0 5 H10"/>
 </pattern>
+<pattern id="pt-snow" width="44" height="44" patternUnits="userSpaceOnUse">
+  <circle cx="8" cy="10" r="2.4" fill="#fff"/><circle cx="30" cy="26" r="2" fill="#fff"/><circle cx="17" cy="35" r="1.5" fill="#fff"/><circle cx="37" cy="7" r="1.4" fill="#fff"/>
+  <path d="M3 24 q5 -4 10 0 M24 40 q5 -4 10 0" fill="none" stroke="#8fb0d4" stroke-width="1.4" opacity="0.45" stroke-linecap="round"/>
+</pattern>
 <pattern id="pt-halftone" width="7" height="7" patternUnits="userSpaceOnUse">
   <circle cx="3.5" cy="3.5" r="1.1" fill="#fff" opacity="0.5"/>
 </pattern>
@@ -366,6 +370,172 @@ const OBJ = {
     <circle class="o2" fill="${C.cream}" cx="34" cy="52" r="8"/><circle class="o2" fill="${C.cream}" cx="56" cy="53" r="8"/><circle class="o2" fill="${C.cream}" cx="73" cy="52" r="7"/>
     <circle class="o2" fill="${C.cream}" cx="27" cy="77" r="7.5"/><circle class="o2" fill="${C.cream}" cx="48" cy="77" r="7.5"/><circle class="o2" fill="${C.cream}" cx="68" cy="77" r="7.5"/>
     <circle class="n" fill="${C.red}" cx="28" cy="26" r="2.4"/><circle class="n" fill="${C.lapis}" cx="46" cy="27" r="2.4"/><circle class="n" fill="${C.red}" cx="56" cy="53" r="2.4"/><circle class="n" fill="${C.lapis}" cx="48" cy="77" r="2.4"/>`,
+
+  // ----- the North Pole -----
+  stool: `
+    <path class="s" d="M32 58 L25 90 M68 58 L75 90 M50 60 V88 M29 76 H71"/>
+    <ellipse class="o" fill="${C.wood}" cx="50" cy="50" rx="31" ry="12"/>
+    <ellipse class="n" fill="${C.woodL}" cx="50" cy="48" rx="22" ry="6.5"/>`,
+  hay: `
+    <rect class="o" fill="${C.gold}" x="10" y="30" width="80" height="54" rx="7"/>
+    <path class="t" d="M12 47 H88 M12 66 H88 M24 34 V44 M50 50 V62 M70 70 V80 M36 70 V80" opacity="0.5"/>
+    <rect class="o2" fill="${C.woodD}" x="28" y="28" width="8" height="58"/><rect class="o2" fill="${C.woodD}" x="64" y="28" width="8" height="58"/>
+    <path class="t" d="M14 30 l-5 -6 M86 30 l6 -5 M48 30 l1 -8 M12 84 l-5 6 M88 84 l5 5"/>`,
+  sledge: `
+    <path class="s" d="M12 80 H76 C92 80 92 62 80 62" style="stroke-width:5"/>
+    <path class="s" d="M28 80 V62 M62 80 V62"/>
+    <path class="o" fill="${C.red}" d="M10 48 H74 C82 48 84 62 76 62 H10 Z"/>
+    <path class="t" d="M26 48 V62 M42 48 V62 M58 48 V62"/>
+    <path class="hl" d="M16 53 H68"/>`,
+  sleigh: `
+    <path class="s" d="M12 88 H72 C90 88 92 72 82 70" style="stroke:${C.goldD};stroke-width:5"/>
+    <path class="s" d="M30 88 V74 M60 88 V74"/>
+    <path class="o" fill="${C.red}" d="M10 42 C10 28 23 26 27 35 L31 52 H61 L69 30 C73 20 89 23 87 36 L80 66 C78 72 72 75 66 75 H24 C14 75 10 66 10 56 Z"/>
+    <path class="n" fill="${C.redD}" d="M31 52 H61 L58 63 H34 Z"/>
+    <path class="s" d="M15 44 C21 49 23 57 21 67" style="stroke:${C.gold};stroke-width:3"/>
+    <circle class="o2" fill="${C.gold}" cx="78" cy="40" r="4.5"/>`,
+  xtree: `
+    <rect class="o" fill="${C.woodD}" x="44" y="80" width="12" height="13"/>
+    <path class="o" fill="${C.leafD}" d="M50 12 L68 37 H60 L76 59 H66 L85 83 H15 L34 59 H24 L40 37 H32 Z"/>
+    <path class="s" d="M37 41 Q50 49 63 39 M29 63 Q50 74 71 61" style="stroke:${C.gold};stroke-width:2.8"/>
+    <circle class="o2" fill="${C.red}" cx="46" cy="31" r="4"/><circle class="o2" fill="${C.red}" cx="60" cy="53" r="4"/><circle class="o2" fill="${C.red}" cx="34" cy="74" r="4"/>
+    <circle class="o2" fill="${C.blueL}" cx="44" cy="56" r="4"/><circle class="o2" fill="${C.blueL}" cx="66" cy="74" r="4"/><circle class="o2" fill="${C.gold}" cx="52" cy="75" r="4"/>
+    <path class="o2" fill="${C.gold}" d="M50 1 L52.800 8 L60 8.600 L54.500 13.300 L56.200 20.400 L50 16.500 L43.800 20.400 L45.500 13.300 L40 8.600 L47.200 8 Z"/>`,
+  pine: `
+    <rect class="o" fill="${C.woodD}" x="45" y="78" width="10" height="15"/>
+    <path class="o" fill="${C.tealD}" d="M50 7 L70 41 H61 L82 81 H18 L39 41 H30 Z"/>
+    <path class="o2" fill="${C.white}" d="M50 7 L61 26 C57 30 54 24 50 28 C46 24 43 30 39 26 Z"/>
+    <path class="o2" fill="${C.white}" d="M39 41 L34 51 C40 56 45 49 50 53 C55 49 60 56 66 51 L61 41 Z"/>
+    <path class="o2" fill="${C.white}" d="M18 81 C24 72 31 80 38 74 C44 80 54 72 61 78 C68 72 76 78 82 81 Z"/>`,
+  snowman: `
+    <path class="s" d="M28 62 L9 49 M14 52 l-1 -8 M72 62 L91 49 M86 52 l1 -8" style="stroke:${C.woodD}"/>
+    <circle class="o" fill="${C.white}" cx="50" cy="68" r="24"/>
+    <circle class="o" fill="${C.white}" cx="50" cy="36" r="16"/>
+    <rect class="o" fill="${C.dark}" x="40" y="5" width="20" height="17"/><rect class="o" fill="${C.dark}" x="33" y="20" width="34" height="5" rx="2"/>
+    <rect class="n" fill="${C.red}" x="41.500" y="15" width="17" height="4"/>
+    <circle class="d" cx="44" cy="33" r="2.2"/><circle class="d" cx="56" cy="33" r="2.2"/>
+    <path class="o2" fill="${C.orange}" d="M50 36 L65 40 L50 42.500 Z"/>
+    <path class="o2" fill="${C.red}" d="M35 47 Q50 56 65 47 L66 53 Q50 62 34 53 Z"/><path class="o2" fill="${C.red}" d="M57 54 L64 70 L56 71 L53 56 Z"/>
+    <circle class="d" cx="48" cy="66" r="2.4"/><circle class="d" cx="48" cy="77" r="2.4"/>
+    <path class="sh" d="M66 50 C78 60 76 82 60 90 C70 80 70 62 66 50 Z"/>`,
+  reindeer: `
+    <path class="s" d="M37 30 C31 21 27 14 29 5 M33 22 L22 19 M30 13 L21 8 M63 30 C69 21 73 14 71 5 M67 22 L78 19 M70 13 L79 8" style="stroke:${C.woodD};stroke-width:4"/>
+    <path class="o" fill="${C.wood}" d="M29 94 C27 72 33 64 40 60 L60 60 C67 64 73 72 71 94 Z"/>
+    <path class="o" fill="${C.woodL}" d="M20 37 L35 33 L37 43 Z M80 37 L65 33 L63 43 Z"/>
+    <path class="o" fill="${C.wood}" d="M34 35 C34 24 66 24 66 35 L62 58 C60 71 40 71 38 58 Z"/>
+    <ellipse class="n" fill="${C.woodL}" cx="50" cy="59" rx="10.500" ry="8"/>
+    <ellipse class="d" cx="50" cy="59" rx="5.500" ry="4.200"/>
+    <circle class="d" cx="42" cy="43" r="2.800"/><circle class="d" cx="58" cy="43" r="2.800"/>
+    <path class="o2" fill="${C.red}" d="M35 76 H65 V83 H35 Z"/><circle class="o2" fill="${C.gold}" cx="50" cy="87" r="5"/><path class="t" d="M50 87 V91"/>`,
+  workbench: `
+    <path class="s" d="M20 62 V91 M80 62 V91 M20 80 H80"/>
+    <rect class="o" fill="${C.wood}" x="8" y="48" width="84" height="15" rx="2"/>
+    <path class="t" d="M30 48 V63 M56 48 V63 M74 48 V63" opacity="0.45"/>
+    <path class="o2" fill="${C.metal}" d="M16 48 V34 H22 V30 H34 V34 H40 V48 Z"/>
+    <path class="s" d="M62 48 L70 28" style="stroke:${C.woodD};stroke-width:4.500"/><path class="o2" fill="${C.metalD}" d="M60 22 L80 28 L78 36 L58 30 Z"/>
+    <path class="o2" fill="${C.gold}" d="M44 48 L48 38 H56 L52 48 Z"/>`,
+  toyshelf: `
+    <rect class="o" fill="${C.wood}" x="10" y="8" width="80" height="84" rx="3"/>
+    <rect class="n" fill="${C.woodD}" x="16" y="14" width="68" height="21"/><rect class="n" fill="${C.woodD}" x="16" y="40" width="68" height="21"/><rect class="n" fill="${C.woodD}" x="16" y="66" width="68" height="21"/>
+    <circle class="o2" fill="${C.red}" cx="28" cy="27" r="7"/><rect class="o2" fill="${C.blue}" x="42" y="20" width="14" height="14"/><path class="o2" fill="${C.gold}" d="M64 34 L72 18 L80 34 Z"/>
+    <rect class="o2" fill="${C.leaf}" x="20" y="47" width="18" height="13"/><circle class="o2" fill="${C.gold}" cx="52" cy="53" r="7"/><rect class="o2" fill="${C.purple}" x="66" y="45" width="12" height="15"/>
+    <path class="o2" fill="${C.teal}" d="M20 86 L28 70 L36 86 Z"/><circle class="o2" fill="${C.pink}" cx="50" cy="79" r="7"/><rect class="o2" fill="${C.orange}" x="64" y="73" width="15" height="13"/>
+    <path class="s" d="M10 37.500 H90 M10 63.500 H90"/>`,
+  mailsack: `
+    <path class="o2" fill="${C.white}" d="M42 16 L60 11 L64 26 L46 31 Z"/><path class="t" d="M44 18 L55 23 L60 13"/>
+    <path class="o" fill="${C.sand}" d="M30 34 C13 50 11 80 25 91 H75 C89 80 87 50 70 34 Z"/>
+    <path class="o" fill="${C.sandD}" d="M31 23 C40 30 60 30 69 23 L71 35 H29 Z"/>
+    <path class="s" d="M30 35 H70" style="stroke:${C.redD};stroke-width:4.500"/>
+    <rect class="o2" fill="${C.white}" x="36" y="52" width="28" height="19"/><path class="t" d="M36 52 L50 63 L64 52"/>
+    <path class="sh" d="M70 36 C86 50 88 80 75 91 H64 C76 76 76 52 62 36 Z"/>`,
+  candycane: `
+    <path class="s" d="M38 90 V36 C38 12 74 12 74 36 V44" style="stroke-width:19"/>
+    <path class="s" d="M38 90 V36 C38 12 74 12 74 36 V44" style="stroke:${C.white};stroke-width:13"/>
+    <path class="s" d="M38 90 V36 C38 12 74 12 74 36 V44" style="stroke:${C.red};stroke-width:13;stroke-dasharray:9 12;stroke-linecap:butt"/>
+    <path class="o2" fill="${C.leaf}" d="M38 60 C28 50 18 56 22 64 C26 70 34 66 38 60 Z M38 60 C48 50 58 56 54 64 C50 70 42 66 38 60 Z"/><circle class="o2" fill="${C.gold}" cx="38" cy="61" r="4"/>`,
+  gingerbread: `
+    <path class="o" fill="${C.woodD}" d="M18 48 H82 V91 H18 Z"/>
+    <path class="o" fill="${C.wood}" d="M8 52 L50 13 L92 52 Z"/>
+    <path class="s" d="M13 51 Q21 60 29 51 Q37 60 45 51 Q53 60 61 51 Q69 60 77 51 Q83 58 88 51" style="stroke:${C.white};stroke-width:4.500"/>
+    <path class="o2" fill="${C.red}" d="M42 91 V74 C42 63 58 63 58 74 V91 Z"/><circle class="n" fill="${C.gold}" cx="54" cy="79" r="1.800"/>
+    <circle class="o2" fill="${C.white}" cx="29" cy="72" r="6.500"/><circle class="o2" fill="${C.white}" cx="71" cy="72" r="6.500"/><path class="t" d="M29 65.500 V78.500 M22.500 72 H35.500 M71 65.500 V78.500 M64.500 72 H77.500"/>
+    <circle class="o2" fill="${C.red}" cx="50" cy="31" r="4.500"/><circle class="o2" fill="${C.leaf}" cx="36" cy="41" r="3.500"/><circle class="o2" fill="${C.gold}" cx="64" cy="41" r="3.500"/>`,
+  lantern: `
+    <path class="s" d="M39 24 C39 4 61 4 61 24"/>
+    <path class="o" fill="${C.dark}" d="M30 22 H70 L63 33 H37 Z"/>
+    <rect class="o" fill="${C.gold}" x="34" y="33" width="32" height="44"/>
+    <path class="n" fill="${C.orange}" d="M50 44 C59 55 57 67 50 70 C43 67 41 55 50 44 Z"/><path class="n" fill="${C.white}" d="M50 56 C54 61 53 67 50 68 C47 67 46 61 50 56 Z"/>
+    <path class="t" d="M34 33 L66 77 M66 33 L34 77" opacity="0.35"/>
+    <path class="o" fill="${C.dark}" d="M29 77 H71 L75 91 H25 Z"/>`,
+  // ----- toys: what the wrapped presents hide -----
+  drum: `
+    <path class="s" d="M22 12 L45 36 M78 12 L55 36" style="stroke:${C.woodD};stroke-width:4"/><circle class="o2" fill="${C.woodL}" cx="22" cy="12" r="5"/><circle class="o2" fill="${C.woodL}" cx="78" cy="12" r="5"/>
+    <path class="o" fill="${C.red}" d="M15 42 V76 C15 93 85 93 85 76 V42 Z"/>
+    <path class="s" d="M15 54 L29 84 L43 58 L57 86 L71 58 L85 80" style="stroke:${C.gold};stroke-width:2.800"/>
+    <path class="s" d="M15 76 C15 93 85 93 85 76" style="stroke:${C.gold};stroke-width:5"/><path class="s" d="M15 76 C15 93 85 93 85 76" style="stroke-width:1.500" transform="translate(0 3)"/>
+    <ellipse class="o" fill="${C.cream}" cx="50" cy="42" rx="35" ry="11.500"/>`,
+  teddy: `
+    <circle class="o" fill="${C.wood}" cx="30" cy="21" r="9.500"/><circle class="o" fill="${C.wood}" cx="70" cy="21" r="9.500"/>
+    <circle class="n" fill="${C.woodL}" cx="30" cy="21" r="4.500"/><circle class="n" fill="${C.woodL}" cx="70" cy="21" r="4.500"/>
+    <circle class="o" fill="${C.wood}" cx="23" cy="62" r="9.500"/><circle class="o" fill="${C.wood}" cx="77" cy="62" r="9.500"/>
+    <ellipse class="o" fill="${C.wood}" cx="50" cy="70" rx="24" ry="22"/>
+    <circle class="o" fill="${C.wood}" cx="34" cy="88" r="9.500"/><circle class="o" fill="${C.wood}" cx="66" cy="88" r="9.500"/>
+    <ellipse class="n" fill="${C.woodL}" cx="50" cy="73" rx="13" ry="13"/>
+    <circle class="o" fill="${C.wood}" cx="50" cy="36" r="22"/>
+    <ellipse class="o2" fill="${C.woodL}" cx="50" cy="43" rx="10" ry="8"/>
+    <circle class="d" cx="42" cy="32" r="2.500"/><circle class="d" cx="58" cy="32" r="2.500"/><ellipse class="d" cx="50" cy="40" rx="3.200" ry="2.300"/><path class="t" d="M50 42 V46 M46 47.500 Q50 50 54 47.500"/>
+    <path class="o2" fill="${C.red}" d="M50 57 L39 52 V62 Z M50 57 L61 52 V62 Z"/><circle class="o2" fill="${C.red}" cx="50" cy="57" r="2.800"/>`,
+  train: `
+    <circle class="o2" fill="${C.white}" cx="24" cy="13" r="6"/><circle class="o2" fill="${C.white}" cx="35" cy="7" r="4.500"/>
+    <path class="o" fill="${C.dark}" d="M19 46 V30 H15 V23 H35 V30 H31 V46 Z"/>
+    <rect class="o" fill="${C.red}" x="10" y="46" width="48" height="28" rx="5"/>
+    <rect class="o" fill="${C.blue}" x="54" y="30" width="34" height="44" rx="3"/>
+    <rect class="o2" fill="${C.cyan}" x="61" y="38" width="20" height="15"/>
+    <rect class="o" fill="${C.gold}" x="49" y="24" width="44" height="8" rx="2"/>
+    <path class="s" d="M10 60 H54" style="stroke:${C.gold};stroke-width:3"/>
+    <circle class="o" fill="${C.gold}" cx="24" cy="80" r="10"/><circle class="o" fill="${C.gold}" cx="48" cy="80" r="10"/><circle class="o" fill="${C.gold}" cx="76" cy="78" r="12"/>
+    <circle class="d" cx="24" cy="80" r="3"/><circle class="d" cx="48" cy="80" r="3"/><circle class="d" cx="76" cy="78" r="3.500"/>`,
+  horse: `
+    <path class="s" d="M10 76 C30 97 70 97 90 76" style="stroke-width:9"/><path class="s" d="M10 76 C30 97 70 97 90 76" style="stroke:${C.red};stroke-width:5"/>
+    <path class="s" d="M35 64 L30 86 M63 64 L70 86" style="stroke-width:7"/><path class="s" d="M35 64 L30 86 M63 64 L70 86" style="stroke:${C.wood};stroke-width:3.500"/>
+    <path class="o2" fill="${C.dark}" d="M27 48 C15 50 12 62 17 72 C21 65 24 59 30 56 Z"/>
+    <path class="o" fill="${C.wood}" d="M26 52 C26 43 36 41 44 44 H58 C62 34 60 24 68 15 L78 19 L76 26 L87 35 L83 44 L72 41 C72 52 72 62 66 67 H32 C26 65 26 58 26 52 Z"/>
+    <path class="o2" fill="${C.dark}" d="M61 26 C57 33 57 39 59 44 L66 42 C64 36 66 30 69 23 Z"/>
+    <path class="o2" fill="${C.red}" d="M40 43 H56 V55 H40 Z"/><path class="s" d="M72 30 L62 40" style="stroke:${C.red};stroke-width:2.500"/>
+    <circle class="d" cx="76" cy="27" r="2"/>`,
+  robot: `
+    <path class="s" d="M50 8 V19"/><circle class="o2" fill="${C.red}" cx="50" cy="7" r="4.500"/>
+    <rect class="o" fill="${C.metalD}" x="11" y="52" width="11" height="25" rx="4"/><rect class="o" fill="${C.metalD}" x="78" y="52" width="11" height="25" rx="4"/>
+    <rect class="o" fill="${C.metalD}" x="33" y="78" width="13" height="14" rx="2"/><rect class="o" fill="${C.metalD}" x="54" y="78" width="13" height="14" rx="2"/>
+    <rect class="o" fill="${C.metal}" x="29" y="18" width="42" height="29" rx="6"/>
+    <circle class="o2" fill="${C.gold}" cx="41" cy="30" r="5.500"/><circle class="o2" fill="${C.gold}" cx="59" cy="30" r="5.500"/><circle class="d" cx="41" cy="30" r="1.800"/><circle class="d" cx="59" cy="30" r="1.800"/>
+    <path class="s" d="M40 40 H60 M45 38 V42 M50 38 V42 M55 38 V42" style="stroke-width:2"/>
+    <rect class="o" fill="${C.teal}" x="24" y="49" width="52" height="31" rx="5"/>
+    <rect class="o2" fill="${C.cyan}" x="34" y="55" width="32" height="11" rx="2"/>
+    <circle class="o2" fill="${C.red}" cx="40" cy="73" r="3"/><circle class="o2" fill="${C.gold}" cx="50" cy="73" r="3"/><circle class="o2" fill="${C.leaf}" cx="60" cy="73" r="3"/>`,
+  top: `
+    <path class="s" d="M50 5 V24" style="stroke-width:8"/><path class="s" d="M50 5 V24" style="stroke:${C.wood};stroke-width:4.500"/>
+    <path class="o" fill="${C.red}" d="M12 42 C12 25 88 25 88 42 C88 58 60 70 50 94 C40 70 12 58 12 42 Z"/>
+    <path class="n" fill="${C.gold}" d="M13.500 44 C24 54 76 54 86.500 44 C85 51 80 57 73 61 C58 66 42 66 27 61 C20 57 15 51 13.500 44 Z"/>
+    <path class="n" fill="${C.blue}" d="M36 67 C45 70 55 70 64 67 C58 74 55 80 52.500 86 H47.500 C45 80 42 74 36 67 Z"/>
+    <path class="o" fill="none" d="M12 42 C12 25 88 25 88 42 C88 58 60 70 50 94 C40 70 12 58 12 42 Z"/>
+    <path class="hl" d="M24 35 Q40 29 58 31"/>`,
+  duck: `
+    <path class="s" d="M4 90 Q14 83 24 90 T44 90 T64 90 T84 90 T96 88" style="stroke:${C.blueD};stroke-width:3"/>
+    <path class="o" fill="${C.gold}" d="M16 60 L5 44 L26 51 Z"/>
+    <ellipse class="o" fill="${C.gold}" cx="46" cy="66" rx="35" ry="22"/>
+    <circle class="o" fill="${C.gold}" cx="66" cy="36" r="19"/>
+    <path class="n" fill="${C.gold}" d="M50 44 C56 52 70 54 80 48 L74 62 L50 60 Z"/>
+    <path class="o2" fill="${C.orange}" d="M82 33 L97 39 L82 46 C80 42 80 37 82 33 Z"/><path class="t" d="M83 39.500 H94"/>
+    <circle class="d" cx="71" cy="31" r="2.800"/><circle class="p" cx="72" cy="30" r="1"/>
+    <path class="o2" fill="${C.goldD}" d="M26 66 C32 54 54 54 60 66 C54 78 34 78 26 66 Z"/>`,
+  kite: `
+    <path class="s" d="M50 80 C42 86 58 88 52 94 C50 96 54 98 56 97" style="stroke-width:2.200"/>
+    <path class="o" fill="${C.red}" d="M50 5 L82 40 L50 80 L18 40 Z"/>
+    <path class="n" fill="${C.gold}" d="M50 7 L80 40 H50 Z"/><path class="n" fill="${C.blue}" d="M20 40 H50 V78 Z"/>
+    <path class="s" d="M50 5 V80 M18 40 H82" style="stroke-width:2.200"/>
+    <path class="o" fill="none" d="M50 5 L82 40 L50 80 L18 40 Z"/>
+    <path class="o2" fill="${C.gold}" d="M47 86 L39 82 V90 Z M47 86 L55 82 V90 Z"/>`,
 };
 
 // ---------- two-square furniture (200x100, drawn lying left to right) ----------
@@ -476,6 +646,15 @@ const OBJ2 = {
     <path class="s" d="M40 60 V78 M62 64 V80 M84 66 V80 M116 66 V80 M138 64 V80 M160 60 V78" style="stroke:${C.sandD};stroke-width:3"/>
     <path class="o" fill="${C.sand}" d="M12 46 C4 38 6 24 18 20 C14 32 18 42 24 50 Z"/><path class="o" fill="${C.sand}" d="M188 46 C196 38 194 24 182 20 C186 32 182 42 176 50 Z"/>`,
 };
+OBJ2.sleigh = `
+    <path class="s" d="M18 89 H150 C178 89 186 66 168 62" style="stroke:${C.goldD};stroke-width:5.500"/>
+    <path class="s" d="M50 89 V74 M124 89 V74"/>
+    <path class="o" fill="${C.sand}" d="M58 52 C50 34 62 20 78 25 C92 19 106 34 98 52 Z"/><path class="s" d="M70 27 Q78 21 86 27" style="stroke:${C.redD};stroke-width:3.500"/>
+    <path class="o" fill="${C.red}" d="M12 36 C12 20 30 18 36 29 L44 51 H120 L134 26 C140 13 166 16 163 33 L152 65 C150 72 142 75 134 75 H38 C22 75 12 64 12 52 Z"/>
+    <path class="n" fill="${C.redD}" d="M44 51 H120 L115 63 H49 Z"/>
+    <path class="s" d="M19 40 C28 47 30 57 28 69 M151 30 C146 44 146 57 141 69" style="stroke:${C.gold};stroke-width:3.200"/>
+    <circle class="o2" fill="${C.gold}" cx="155" cy="37" r="5.500"/><path class="hl" d="M60 69 H112"/>`;
+
 const PLAN = new Set(['bed', 'table', 'rug', 'sleeppod', 'hydro', 'coffin', 'sarcophagus']);
 
 // The big rug (200x200).
@@ -491,6 +670,9 @@ const OBJ4 = {
     <circle class="n" fill="${C.red}" cx="48" cy="50" r="5"/><circle class="n" fill="${C.red}" cx="152" cy="50" r="5"/><circle class="n" fill="${C.red}" cx="48" cy="150" r="5"/><circle class="n" fill="${C.red}" cx="152" cy="150" r="5"/>`,
 };
 
+// in keys and rules a wrapped present is shown in red paper
+OBJ.gift = giftSvg({ paper: C.red, ribbon: C.gold });
+
 export function objectSvg(kind) {
   return OBJ[kind] || '';
 }
@@ -503,6 +685,19 @@ export function pieceSvg(piece) {
   if (w === 2 && h === 1 && OBJ2[kind]) return OBJ2[kind];
   if (w === 1 && h === 2 && OBJ2[kind] && PLAN.has(kind)) return `<g transform="translate(100 0) rotate(90)">${OBJ2[kind]}</g>`;
   return null;
+}
+
+// A wrapped present: `wrap` is { paper, ribbon } (the North Pole).
+export function giftSvg(wrap) {
+  return `
+    <rect class="o" fill="${wrap.paper}" x="15" y="42" width="70" height="49" rx="3"/>
+    <path class="sh" d="M70 44 H84 V90 H70 Z"/>
+    <circle class="n" fill="#fff" cx="27" cy="56" r="3" opacity="0.45"/><circle class="n" fill="#fff" cx="34" cy="76" r="3" opacity="0.45"/><circle class="n" fill="#fff" cx="66" cy="62" r="3" opacity="0.45"/><circle class="n" fill="#fff" cx="72" cy="82" r="3" opacity="0.45"/>
+    <rect class="o2" fill="${wrap.ribbon}" x="43" y="42" width="14" height="49"/>
+    <rect class="o" fill="${wrap.paper}" x="10" y="30" width="80" height="16" rx="3"/>
+    <rect class="o2" fill="${wrap.ribbon}" x="43" y="30" width="14" height="16"/>
+    <path class="o2" fill="${wrap.ribbon}" d="M50 30 C42 6 18 10 27 26 C33 33 44 32 50 30 Z M50 30 C58 6 82 10 73 26 C67 33 56 32 50 30 Z"/>
+    <circle class="o2" fill="${wrap.ribbon}" cx="50" cy="29" r="5"/>`;
 }
 
 // Zeta-9 teleporter pad, drawn on the floor under anything else in the square.
@@ -546,6 +741,13 @@ const EMBLEMS = {
     <path class="t" d="M30 42 H54 M22 56 H62 M14 70 H71" opacity="0.5"/>
     <path class="o" fill="${C.sand}" d="M52 84 L74 50 L96 84 Z"/>
     <rect class="n" fill="${C.sand}" x="0" y="84" width="100" height="16"/><path class="s" d="M0 84 H100"/>`,
+  xmas: `
+    <rect class="n" fill="#27407a" x="0" y="0" width="100" height="100"/>
+    <circle class="n" fill="#fff" cx="14" cy="16" r="2"/><circle class="n" fill="#fff" cx="38" cy="9" r="1.500"/><circle class="n" fill="#fff" cx="88" cy="18" r="2"/><circle class="n" fill="#fff" cx="72" cy="8" r="1.300"/><circle class="n" fill="#fff" cx="9" cy="46" r="1.500"/><circle class="n" fill="#fff" cx="93" cy="60" r="1.500"/>
+    <path class="n" fill="${C.white}" d="M0 82 Q28 70 54 80 T100 76 V100 H0 Z"/>
+    <path class="o" fill="${C.red}" d="M22 68 C24 38 42 18 64 20 C79 22 86 34 83 46 C75 36 65 38 63 49 L72 68 Z"/>
+    <circle class="o" fill="${C.white}" cx="85" cy="48" r="9.500"/>
+    <rect class="o" fill="${C.white}" x="14" y="63" width="66" height="17" rx="8.500"/>`,
   heist: `
     <rect class="n" fill="${C.dark}" x="0" y="0" width="100" height="100"/>
     <path class="o" fill="${C.cyan}" d="M28 34 H72 L88 52 L50 90 L12 52 Z"/>

@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="../css/style.css">
+<style>body{padding:12px}h3{margin:10px 0 6px;font-family:var(--display);font-weight:400}.g{display:grid;grid-template-columns:repeat(8,118px);gap:8px}.g div{border:3px solid var(--ink);border-radius:10px;overflow:hidden}.g svg{width:100%;display:block}
+.o1{display:grid;grid-template-columns:repeat(9,104px);gap:6px}.o1 svg{width:104px;height:104px;background:#dcebf7;border-radius:8px}.o2{display:flex;flex-wrap:wrap;gap:6px}.o2 svg{height:104px;background:#ece4d2;border-radius:8px}</style>
+<h3>The North Pole: elves, Santa, Mrs Claus</h3><div class="g" id="elves"></div>
+<h3>Furniture, toys, presents</h3><div class="o1" id="o"></div><h3>Sleigh, emblem</h3><div class="o2" id="big"></div>
+<script type="module">
+import { patternDefsSvg, objectSvg, pieceSvg, emblemSvg, giftSvg } from '../js/art.js';
+import { portraitSvg, hostSvg } from '../js/portraits.js';
+import { XMAS_ROLES, SANTA, GIFT_WRAPS, TOYS } from '../js/themes.js';
+document.body.insertAdjacentHTML('afterbegin', patternDefsSvg());
+const inks = ['#2f6fc2', '#2e8b4e', '#d9731a', '#8a4fc0', '#0f9aa6', '#c9367a', '#6f7d1f', '#4a55c4'];
+const mix = (a) => { const p = a.match(/\w\w/g).map((h) => parseInt(h, 16)); return '#' + p.map((v) => Math.round(v * 0.3 + 255 * 0.7).toString(16).padStart(2, '0')).join(''); };
+const cell = (person, i, extra = {}) => `<div>${portraitSvg(person, { color: inks[i % 8], tint: mix(inks[i % 8]), ...extra })}</div>`;
+document.getElementById('elves').innerHTML = XMAS_ROLES.slice(0, 13).map((r, i) => cell({ role: r.id, culture: 'xmas', gender: i % 2 ? 'f' : 'm', lookSeed: 400 + i * 11 }, i)).join('')
+  + cell({ ...SANTA, lookSeed: 3, culture: 'xmas' }, 0, { color: '#c8372d', tint: mix('#c8372d') })
+  + cell({ ...SANTA, lookSeed: 3, culture: 'xmas' }, 0, { color: '#c8372d', tint: mix('#c8372d'), dead: true })
+  + `<div style="background:#ffd9d2">${hostSvg('xmas')}</div>`;
+const kinds = ['stool', 'hay', 'sledge', 'sleigh', 'xtree', 'pine', 'snowman', 'reindeer', 'workbench', 'toyshelf', 'mailsack', 'candycane', 'gingerbread', 'lantern', ...TOYS];
+document.getElementById('o').innerHTML = kinds.map((o) => `<svg class="art" viewBox="0 0 100 100"><title>${o}</title>${objectSvg(o)}</svg>`).join('')
+  + GIFT_WRAPS.map((w) => `<svg class="art" viewBox="0 0 100 100">${giftSvg(w)}</svg>`).join('');
+document.getElementById('big').innerHTML = `<svg class="art" viewBox="0 0 200 100">${pieceSvg({ kind: 'sleigh', w: 2, h: 1 })}</svg><span style="width:104px;display:inline-block">${emblemSvg('xmas')}</span>`;
+</script>

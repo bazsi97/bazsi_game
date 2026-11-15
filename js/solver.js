@@ -3,7 +3,7 @@
 //  - logicalSolve: solves like a human would, technique by technique, used to RATE difficulty
 //    and to give hints in a sensible order.
 
-import { domainFor, relationsOf, relHolds, widthOf, heightOf } from './clues.js';
+import { domainFor, relationsOf, relHolds, widthOf, heightOf, presentWorlds } from './clues.js';
 
 export function victimIndex(p) {
   return p.people.findIndex((x) => x.isVictim);
@@ -13,9 +13,10 @@ export function victimIndex(p) {
 export function aloneOk(p, pos) {
   const v = victimIndex(p);
   const a = p.cells[pos[v]].area;
-  let others = 0;
-  pos.forEach((i, k) => { if (k !== v && p.cells[i].area === a) others++; });
-  return others === 1;
+  let others = 0, who = -1;
+  pos.forEach((i, k) => { if (k !== v && p.cells[i].area === a) { others++; who = k; } });
+  // p.killers (recipe 3): the murderer is known to be one of these people, e.g. the naughty list
+  return others === 1 && (!p.killers || p.killers.includes(who));
 }
 
 export function countSolutions(p, limit = 2) {
@@ -71,7 +72,14 @@ export function logicalSolve(p, { fixed = null, log = null } = {}) {
   const lineCount = [heightOf(p), n];
   const lineFull = [P === heightOf(p), P === n];
   const vi = victimIndex(p);
-  const cand = p.people.map((_, k) => new Set(fixed?.[k] != null ? [fixed[k]] : domainFor(p, k)));
+  // Wrapped presents (recipe 3): one "world" per way the toys could sit under the wrappings.
+  // A square is possible while some live world allows it; a world dies when it strands somebody.
+  const worlds = p.presents
+    ? presentWorlds(p).map((v) => ({ kinds: v.world, dom: p.people.map((_, k) => new Set(domainFor(v, k))) })) : null;
+  let live = worlds;
+  const deadPairs = []; // { gift, kind, stuck } pairings ruled out so far, for the hints
+  const startDomain = (k) => (worlds ? [...new Set(worlds.flatMap((w) => [...w.dom[k]]))].sort((a, b) => a - b) : domainFor(p, k));
+  const cand = p.people.map((_, k) => new Set(fixed?.[k] != null ? [fixed[k]] : startDomain(k)));
   const rels = relationsOf(p);
   let why = null; // reason attached to removals while logging
   const placed = new Array(P).fill(false);
@@ -211,16 +219,78 @@ export function logicalSolve(p, { fixed = null, log = null } = {}) {
     return false;
   }
 
-  const techniques = [singles, hiddenLine, pointing, relations, alone, subsets];
+  // Presents: drop pairings of wrapping and toy that would leave somebody with nowhere to stand,
+  // then drop squares that fit under no pairing still standing.
+  function presents() {
+    let ch = false;
+    const before = live;
+    const stuckIn = new Map();
+    live = live.filter((w) => {
+      const k = cand.findIndex((s, j) => ![...s].some((x) => w.dom[j].has(x)));
+      if (k >= 0) stuckIn.set(w, k);
+      return k < 0;
+    });
+    if (live.length < before.length) {
+      ch = true;
+      const G = p.presents.cells.length;
+      for (let g = 0; g < G; g++) {
+        for (const kind of p.presents.kinds) {
+          const had = before.filter((w) => w.kinds[g] === kind);
+          if (!had.length || live.some((w) => w.kinds[g] === kind)) continue;
+          const who = new Set(had.map((w) => stuckIn.get(w)));
+          deadPairs.push({ gift: g, kind, stuck: who.size === 1 ? [...who][0] : -1 });
+        }
+      }
+      if (log) log.push({ presents: possibleKinds(), out: deadPairs.slice() });
+    }
+    for (let k = 0; k < P; k++) {
+      why = { tech: 'present', possible: possibleKinds(), out: deadPairs.slice() };
+      ch = removeWhere(k, (x) => !live.some((w) => w.dom[k].has(x))) || ch;
+    }
+    if (ch) bump(2, 'present');
+    return ch;
+  }
+  // per present: the toys it could still hide
+  function possibleKinds() {
+    return p.presents.cells.map((_, g) => [...new Set(live.map((w) => w.kinds[g]))]);
+  }
+
+  // The naughty list (recipe 3): the murderer is one of p.killers. Santa cannot be in a room
+  // none of them can reach, and once his room is known everybody else stays out of it.
+  function listRule() {
+    if (vi < 0) return false;
+    const K = new Set(p.killers);
+    const suspects = [...Array(P).keys()].filter((k) => k !== vi);
+    let ch = false;
+    for (let a = 0; a < p.areas.length; a++) {
+      why = { tech: 'list', kind: 'unreachable', area: a };
+      if (!suspects.some((k) => K.has(k) && [...cand[k]].some((x) => A(x) === a))) ch = removeWhere(vi, (x) => A(x) === a) || ch;
+    }
+    const vAreas = new Set([...cand[vi]].map(A));
+    if (vAreas.size === 1) {
+      const a = [...vAreas][0];
+      for (const k of suspects) {
+        if (K.has(k)) continue;
+        why = { tech: 'list', kind: 'nice', area: a, who: k };
+        ch = removeWhere(k, (x) => A(x) === a) || ch;
+      }
+    }
+    if (ch) bump(1, 'list');
+    return ch;
+  }
+
+  const techniques = [singles, hiddenLine, pointing, ...(p.killers ? [listRule] : []), ...(worlds ? [presents] : []), relations, alone, subsets];
   while (!placed.every(Boolean)) {
     if (cand.some((s) => s.size === 0)) break;
     if (!techniques.some((t) => t())) break;
   }
 
   const solved = placed.every(Boolean) && cand.every((s) => s.size === 1);
+  // with everybody placed, only wrappings that fit where they stand remain
+  if (worlds && solved) live = live.filter((w) => cand.every((s, j) => [...s].some((x) => w.dom[j].has(x))));
   const contradiction = cand.some((s) => s.size === 0);
   const stuck = cand.findIndex((s) => s.size === 0);
-  return { solved, level: solved ? maxLevel : 3, used, order, initialSingles, contradiction, stuck };
+  return { solved, level: solved ? maxLevel : 3, used, order, initialSingles, contradiction, stuck, presents: worlds ? possibleKinds() : null };
 }
 
 function combos(arr, k, start = 0, acc = [], out = []) {

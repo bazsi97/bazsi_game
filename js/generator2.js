@@ -188,7 +188,7 @@ function makeMaskCast(rng, n, T) {
 
 // ---------- layout ----------
 
-function makeLayout(rng, T, difficulty, rules) {
+export function makeLayout(rng, T, difficulty, rules) {
   const shape = makeShape(rng, T, difficulty);
   const { w, h, isVoid } = shape;
   const N = shape.people;
@@ -329,7 +329,7 @@ function placePads(rng, p) {
 
 // ---------- statements ----------
 
-const BODY_CLUES = new Set(['on', 'beside', 'in', 'rowHas', 'colHas', 'edge']);
+export const BODY_CLUES = new Set(['on', 'beside', 'in', 'rowHas', 'colHas', 'edge']);
 
 function chooseClues(rng, p, target, rules) {
   const square = p.w === p.h && !p.cells.some((c) => c.void);

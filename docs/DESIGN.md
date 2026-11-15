@@ -95,6 +95,7 @@ host who briefs you on first visit.
 | Outpost Zeta-9 | telepathy (statements describe someone else) | + teleporter pads | + human impostor whose statement is false |
 | Hollow Hill House | ghost may stand inside furniture | same | same |
 | Sands of Egypt | masks of the gods + unmasking | stepped-pyramid board | both |
+| Who Killed Santa? | the naughty list: two elves lie, and the killer is one of them | three wrapped presents hide known toys in an unknown order | both, with one name on the list smudged |
 | The Midnight Heist | cameras see along their row until blocked | | *(not built yet)* |
 
 Engine hooks: `clue.about` (telepathy), `clue.neg` + `withLiar()` (impostor), `person.ghost` +
@@ -115,12 +116,24 @@ Generators are therefore versioned as **recipes**:
   rectangles, L-shapes, stepped pyramids), furniture covering two or four squares (`p.pieces`),
   more rooms, statements about where the body was found, and Egypt.
 
+- **Recipe 3** (`generator3.js`): Who Killed Santa? It reuses recipe 2's layouts and adds two
+  twists. *The naughty list* (`p.naughty = { known, hidden }`): the listed people's statements are
+  stored as spoken and are false; `viewFor(p, liars)` turns them round and sets `p.killers`, which
+  the solvers use ("the murderer is one of these"). *Wrapped presents* (`p.presents`, squares with
+  `obj: 'gift'`): the solver keeps one "world" per way the toys could be wrapped and drops a world
+  when it strands somebody. Santa is always the victim. The theme has a fixed 30 cases per desk
+  (`caseLimit`), so `cases3.js` records the attempt at which each case comes out and a phone
+  builds it in one go; `tests/recipe3.mjs` checks all 90 and that table.
+
+A theme belongs to the recipe it was born with (`minGen`); `CURRENT_GEN` stays 2 for the others.
+
 Every save is stamped with the recipe that made it (`progress[key].gen`). A case somebody has
 played keeps its recipe forever; a case nobody has opened is made with `CURRENT_GEN`. On a
 non-square board the number of people equals the shorter side, so only that direction is
 guaranteed full, and the solver's "only one person can reach this line" step applies only there.
 
-`tests/fingerprint.mjs` pins the output of every recipe (210 recipe-1 cases, 240 recipe-2 cases).
+`tests/fingerprint.mjs` pins the output of every recipe (210 recipe-1 cases, 240 recipe-2 cases,
+all 90 recipe-3 cases).
 If it fails, a change would silently alter cases people have saved: put the change in a new recipe
 instead. `tests/e2e.cjs` additionally opens an old-format save in the real app and finishes it.
 

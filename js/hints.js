@@ -3,8 +3,8 @@
 // and explain in plain words what rules out their other squares (without naming the square).
 
 import { logicalSolve, victimIndex } from './solver.js';
-import { domainFor, RELATIONS, CLUES, canStand, cluesAbout, ownHolds, widthOf, heightOf, cellCount } from './clues.js';
-import { OBJECTS } from './themes.js';
+import { domainFor, RELATIONS, CLUES, canStand, cluesAbout, ownHolds, widthOf, heightOf, cellCount, presentWorlds } from './clues.js';
+import { OBJECTS, GIFT_WRAPS } from './themes.js';
 
 const ORD = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th'];
 
@@ -34,11 +34,20 @@ function startText(p, t, size) {
     if (rel) return `${person.name} was ${rel.neg ? 'not ' : ''}${RELATIONS[rel.rel].text.replace(/<\/?b>/g, '')} ${p.people[rel.who].name}.`;
     return `Start from what was said about ${person.name}.`;
   }
+  // the naughty list (recipe 3): a liar's statement counts the other way round
+  if (p.killers?.includes(t)) {
+    return `${person.name} is on the naughty list, so the statement is false. Turned round, it allows ${size} ${plural(size, 'square', 'squares')} (${kinds.join(', ')}).`;
+  }
   const said = about.some((c) => c.about != null) ? 'What was sensed about' : 'The statement about';
   return `${said} ${person.name} allows ${size} ${plural(size, 'square', 'squares')} (${kinds.join(', ')}).`;
 }
 
 function kindOf(p, c) {
+  if (c.obj && OBJECTS[c.obj].toy) {
+    // a toy is under one of the wrappings, and which one may not be known yet
+    const what = `the present that hides the ${OBJECTS[c.obj].name}`;
+    return c.type === 'beside' ? `squares beside ${what}` : `squares in line with ${what}`;
+  }
   if (c.type === 'on' || c.type === 'onlyOn') return plurals(OBJECTS[c.obj].name);
   if (c.type === 'beside') return `squares beside a ${OBJECTS[c.obj].name}`;
   if (c.type === 'in' || c.type === 'onlyIn') return `squares in the ${p.areas[c.area].name}`;
@@ -57,7 +66,9 @@ export function explainNext(p, placed) {
   const t = firstPlace.place;
   const until = log.indexOf(firstPlace);
   const removals = log.slice(0, until).filter((e) => e.k === t && e.why);
-  const start = domainFor(p, t);
+  // with wrapped presents about, a square counts while some way of wrapping the toys allows it
+  const views = presentWorlds(p);
+  const start = views.length === 1 ? domainFor(p, t) : [...new Set(views.flatMap((v) => domainFor(v, t)))];
   const name = p.people[t].name;
   const lines = [];
   const marks = new Set();
@@ -65,7 +76,7 @@ export function explainNext(p, placed) {
   // Others' "only one" statements already shape the starting squares.
   const ownOnly = [];
   for (let i = 0; i < cellCount(p); i++) {
-    if (canStand(p, t, i) && cluesAbout(p, t).every((c) => !CLUES[c.type].own || ownHolds(p, c, i))) ownOnly.push(i);
+    if (canStand(p, t, i) && views.some((v) => cluesAbout(v, t).every((c) => !CLUES[c.type].own || ownHolds(v, c, i)))) ownOnly.push(i);
   }
   lines.push(startText(p, t, ownOnly.length));
   if (ownOnly.length > start.length) {
@@ -77,11 +88,24 @@ export function explainNext(p, placed) {
   // Group the reasons, in the order the solver used them.
   const takenBy = new Set();
   const seen = new Set();
+  // what is known about the presents keeps growing: explain it once, as it stood at the end
+  const lastPresent = removals.filter((e) => e.why.tech === 'present').pop();
   for (const { why } of removals) {
-    const key = JSON.stringify(why);
+    const key = why.tech === 'present' ? 'present' : JSON.stringify(why);
     if (seen.has(key)) continue;
     seen.add(key);
     switch (why.tech) {
+      case 'present':
+        lines.push(...presentLines(p, t, lastPresent.why));
+        p.presents.cells.forEach((i) => marks.add(i));
+        break;
+      case 'list': {
+        const room = p.areas[why.area].name;
+        if (why.kind === 'unreachable') lines.push(`The killer is on the naughty list, and nobody on it can have been in the ${room}. So Santa was not found there.`);
+        else lines.push(`Santa was found in the ${room}, alone with the killer, and the killer is on the naughty list. ${name} is not on it, so ${name} was somewhere else.`);
+        p.cells.forEach((c, i) => { if (c.area === why.area) marks.add(i); });
+        break;
+      }
       case 'single':
         takenBy.add(why.who);
         break;
@@ -133,6 +157,28 @@ export function explainNext(p, placed) {
 }
 
 export { victimIndex };
+
+// ---------- the North Pole: wrapped presents ----------
+
+const wrapName = (g) => `the ${GIFT_WRAPS[g].name} present`;
+const orWords = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} or ${xs[xs.length - 1]}`);
+
+// What is known about the toys person t's statements mention, and why.
+function presentLines(p, t, why) {
+  const out = [];
+  const toys = [...new Set(cluesAbout(p, t).map((c) => c.obj).filter((o) => o && OBJECTS[o].toy))];
+  for (const toy of toys) {
+    const toyName = OBJECTS[toy].name;
+    for (const dead of why.out.filter((x) => x.kind === toy).slice(0, 2)) {
+      out.push(`${wrapName(dead.gift)} cannot hide the ${toyName}: ${dead.stuck >= 0 ? `${nameOf(p, dead.stuck)} would have nowhere to stand` : 'then not everybody would fit'}.`);
+    }
+    const where = why.possible.map((kinds, g) => (kinds.includes(toy) ? g : -1)).filter((g) => g >= 0);
+    if (where.length === 1) out.push(`So the ${toyName} is in ${wrapName(where[0])}, which pins down where ${p.people[t].name} can be.`);
+    else if (where.length < why.possible.length) out.push(`The ${toyName} can only be in ${orWords(where.map(wrapName))}, which rules out more squares for ${p.people[t].name}.`);
+  }
+  if (!out.length) out.push(`Work out the presents first: what is known about them rules out more squares for ${p.people[t].name}.`);
+  return out;
+}
 
 // ---------- Egypt: the unmasking ----------
 // Every named suspect wore exactly one mask and their alibi is true of that mask's square. An

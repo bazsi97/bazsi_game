@@ -49,6 +49,31 @@ export const OBJECTS = {
   chest: { name: 'treasure chest', occupiable: false },
   pillar: { name: 'pillar', occupiable: false },
   scrolls: { name: 'scroll rack', occupiable: false },
+  // The North Pole (recipe 3)
+  stool: { name: 'stool', occupiable: true, onText: 'perched on {a} <b>stool</b>' },
+  hay: { name: 'hay bale', occupiable: true, onText: 'sitting on {a} <b>hay bale</b>' },
+  sledge: { name: 'sledge', occupiable: true, onText: 'sitting on {a} <b>sledge</b>' },
+  sleigh: { name: 'sleigh', occupiable: true, onText: 'sitting in {a} <b>sleigh</b>' },
+  xtree: { name: 'Christmas tree', occupiable: false },
+  pine: { name: 'snowy pine', occupiable: false },
+  snowman: { name: 'snowman', occupiable: false },
+  reindeer: { name: 'reindeer', occupiable: false },
+  workbench: { name: 'workbench', occupiable: false },
+  toyshelf: { name: 'toy shelf', occupiable: false },
+  mailsack: { name: 'mail sack', occupiable: false },
+  candycane: { name: 'candy cane', occupiable: false },
+  gingerbread: { name: 'gingerbread house', occupiable: false },
+  lantern: { name: 'lantern', occupiable: false },
+  // a wrapped present hides one of the toys below; nobody knows which until it is worked out
+  gift: { name: 'wrapped present', occupiable: false },
+  drum: { name: 'drum', occupiable: false, toy: true },
+  teddy: { name: 'teddy bear', occupiable: false, toy: true },
+  train: { name: 'toy train', occupiable: false, toy: true },
+  horse: { name: 'rocking horse', occupiable: false, toy: true },
+  robot: { name: 'toy robot', occupiable: false, toy: true },
+  top: { name: 'spinning top', occupiable: false, toy: true },
+  duck: { name: 'rubber duck', occupiable: false, toy: true },
+  kite: { name: 'kite', occupiable: false, toy: true },
 };
 
 // weights = how likely each object is to appear in a room of this type
@@ -282,10 +307,72 @@ export const SHAPES = {
   sq6: { w: 6, h: 6 }, tall6: { w: 6, h: 7 }, wide6: { w: 7, h: 6 }, long6: { w: 6, h: 8 },
   ell6: { w: 6, h: 8, notch: [2, 2] }, ell6w: { w: 7, h: 6, notch: [1, 2] }, ell6t: { w: 6, h: 7, notch: [2, 1] },
   pyramid: { w: 7, h: 6, rows: [3, 3, 5, 5, 7, 7] }, pyramidApex: { w: 7, h: 6, rows: [1, 3, 5, 5, 7, 7] },
+  // Christmas trees (recipe 3): the same stepped rows, with a star's worth of room at the top
+  tree5: { w: 7, h: 5, rows: [1, 3, 5, 5, 7], tree: true }, tree6: { w: 7, h: 6, rows: [1, 3, 5, 5, 7, 7], tree: true },
 };
 const SHAPES_EASY = [['sq5', 3], ['tall5', 2], ['wide5', 2], ['ell5', 1]];
 const SHAPES_FULL = [['sq6', 3], ['tall6', 2], ['wide6', 2], ['long6', 1], ['ell6', 1], ['ell6w', 1], ['ell6t', 1]];
 const SHAPES_PYRAMID = [['pyramid', 3], ['pyramidApex', 2]];
+
+// ---------- the North Pole: Who Killed Santa? (recipe 3) ----------
+
+export const XMAS_ROOMS = [
+  { id: 'yard', name: 'Snowy Yard', outdoor: true, pattern: 'snow', objects: { snowman: 3, pine: 3, sledge: 2, lantern: 1 } },
+  { id: 'grove', name: 'Pine Grove', outdoor: true, pattern: 'snow', objects: { pine: 4, snowman: 1, bench: 2, lantern: 1 }, big: [['bench', 2, 1, 2]] },
+  { id: 'workshop', name: 'Workshop', pattern: 'boards', objects: { workbench: 3, toyshelf: 2, stool: 3, barrel: 1 }, big: [['table', 2, 1, 2], ['shelf', 2, 1, 1]] },
+  { id: 'stable', name: 'Reindeer Stable', pattern: 'hlines', objects: { reindeer: 3, hay: 3, barrel: 1, lantern: 1 } },
+  { id: 'grotto', name: 'Fireside Den', pattern: 'diag', objects: { xtree: 1, fireplace: 2, chair: 2, rug: 1, shelf: 1 }, big: [['sofa', 2, 1, 2], ['rug', 2, 2, 1]] },
+  { id: 'bakery', name: 'Cookie Kitchen', pattern: 'tiles', objects: { stove: 2, gingerbread: 2, stool: 2, table: 1, barrel: 1 }, big: [['table', 2, 1, 2]] },
+  { id: 'mailroom', name: 'Mail Room', pattern: 'cross', objects: { mailsack: 4, bench: 2, table: 1, shelf: 1 }, big: [['shelf', 2, 1, 2], ['bench', 2, 1, 1]] },
+  { id: 'shed', name: 'Sleigh Shed', pattern: 'diag2', objects: { sleigh: 1, barrel: 2, lantern: 2, stool: 1, workbench: 1 }, big: [['sleigh', 2, 1, 5]] },
+  { id: 'bunks', name: 'Elf Bunkhouse', pattern: 'dots', objects: { rug: 2, wardrobe: 1, chair: 1, candycane: 1, bed: 1 }, big: [['bed', 1, 2, 4], ['bed', 2, 1, 2]] },
+  { id: 'greathall', name: 'Great Hall', pattern: 'checker', objects: { xtree: 2, candycane: 2, chair: 2, rug: 1, fireplace: 1 }, big: [['sofa', 2, 1, 1], ['rug', 2, 2, 2], ['table', 2, 1, 1]] },
+];
+
+export const XMAS_ROLES = [
+  { id: 'headelf', title: 'the Head Elf', gender: 'any' }, { id: 'toymaker', title: 'the Toymaker', gender: 'any' },
+  { id: 'wrapper', title: 'the Gift Wrapper', gender: 'any' }, { id: 'baker', title: 'the Cookie Baker', gender: 'any' },
+  { id: 'keeper', title: 'the Reindeer Keeper', gender: 'any' }, { id: 'postie', title: 'the Mail Sorter', gender: 'any' },
+  { id: 'mechanic', title: 'the Sleigh Mechanic', gender: 'any' }, { id: 'listkeeper', title: 'the List Keeper', gender: 'any' },
+  { id: 'sweep', title: 'the Chimney Sweep', gender: 'any' }, { id: 'brewer', title: 'the Cocoa Brewer', gender: 'any' },
+  { id: 'tester', title: 'the Toy Tester', gender: 'any' }, { id: 'singer', title: 'the Carol Singer', gender: 'any' },
+  { id: 'shoveller', title: 'the Snow Shoveller', gender: 'any' }, { id: 'watch', title: 'the Night Watch', gender: 'any' },
+  { id: 'tinsel', title: 'the Tinsel Hanger', gender: 'any' }, { id: 'intern', title: 'the New Elf', gender: 'any' },
+];
+// no name starts with S: that letter belongs to Santa
+export const XMAS_NAMES = {
+  f: ['Holly', 'Ivy', 'Noelle', 'Merry', 'Joy', 'Carol', 'Ginger', 'Tinsel', 'Bells', 'Clementine', 'Winter', 'Pixie',
+    'Eve', 'Robin', 'Faith', 'Angel', 'Juniper', 'Dove', 'Garland', 'Olive', 'Hazel', 'Zuzu', 'Poppy', 'Kiki', 'Lumi', 'Una', 'Wren', 'Yula'],
+  m: ['Jingle', 'Pip', 'Bramble', 'Frost', 'Nutmeg', 'Tinker', 'Figgy', 'Alabaster', 'Bushy', 'Wunorse', 'Yule', 'Twinkle',
+    'Cedar', 'Dash', 'Elwood', 'Mistle', 'Gumdrop', 'Humbug', 'Icicle', 'Quill', 'Zest', 'Obie', 'Ludo', 'Kringle', 'Rudy', 'Vixen', 'Hob', 'Uri'],
+};
+export const SANTA = { name: 'Santa', initial: 'S', gender: 'm', role: 'santa', title: 'Father Christmas', santa: true };
+export const TOYS = ['drum', 'teddy', 'train', 'horse', 'robot', 'top', 'duck', 'kite'];
+// wrapping paper, by present number
+export const GIFT_WRAPS = [
+  { name: 'red', paper: '#e0605a', ribbon: '#f3c24f' },
+  { name: 'green', paper: '#5fb26a', ribbon: '#fffaf0' },
+  { name: 'blue', paper: '#6fa3e0', ribbon: '#f29b4b' },
+  { name: 'purple', paper: '#a58bd3', ribbon: '#f3c24f' },
+];
+export const XMAS_PLACES = ['the North Pole Workshop', "Santa's Village", 'the Toy Works', 'the Reindeer Lodge', 'the North Pole'];
+export const XMAS_HEADLINES = ['Who Killed Santa?', 'Not Again, Santa!', 'Ho Ho… Oh No', 'Silent Night, Deadly Night Shift',
+  'Santa Down at {estate}', 'Coal for Somebody This Year', 'Slay Bells Ring'];
+export const XMAS_LEDES = [
+  'Santa was found face down in the tinsel at {estate}, days before the big night. {count} elves were on shift. One of them is getting coal.',
+  'The sleigh bells stopped at {estate}. Santa lay still beside a half-eaten mince pie, and {count} elves swear they saw nothing.',
+  'Somebody at {estate} has done Santa in. Again. {count} suspects, one sack of alibis, and Christmas is not going to save itself.',
+  'It was a quiet night at {estate} until Santa hit the floor. {count} elves were close enough to have done it.',
+];
+// Santa is the victim every time, so every ending explains why he will be back for the next case.
+export const XMAS_EPILOGUES = [
+  'Good news: Santa comes round an hour later with a fruitcake-shaped bump. He will be fine by the 24th.',
+  'Good news: it was only one of the stand-in Santas. The real one was asleep in the sleigh the whole time.',
+  'Mrs Claus sighs, fetches the smelling salts and a mince pie, and Santa is back on his feet by teatime.',
+  'A little Christmas magic and a lot of cocoa later, Santa is sitting up and asking who ate his biscuits.',
+  'The doctor elf says it is nothing a nap and a new hat will not fix. Santa has had worse from chimneys.',
+  'Santa wakes up, remembers nothing, and gives everybody a present anyway. Except one elf.',
+];
 
 // ---------- the theme registry ----------
 // rules per difficulty switch on each theme's twist.
@@ -324,5 +411,21 @@ export const THEMES = {
     rooms2: EGYPT_ROOMS,
     shapes: { easy: [['sq5', 3], ['tall5', 1], ['wide5', 1]], medium: SHAPES_PYRAMID, hard: SHAPES_PYRAMID },
     targets: { hard: { minLevel: 1, maxInitialSingles: 1 } },
+  },
+  // Who Killed Santa? only exists from recipe 3 on, and has a fixed number of cases per desk.
+  xmas: {
+    id: 'xmas', name: 'Who Killed Santa?', short: 'North Pole', cast: 'elf', minGen: 3, caseLimit: 30,
+    rooms: XMAS_ROOMS, roles: XMAS_ROLES, names: XMAS_NAMES, places: XMAS_PLACES, headlines: XMAS_HEADLINES, ledes: XMAS_LEDES,
+    rules: { easy: { list: true }, medium: { presents: 3 }, hard: { list: true, smudged: true, presents: 3 } },
+    rooms2: XMAS_ROOMS,
+    shapes: {
+      easy: [['sq5', 5], ['tall5', 2], ['wide5', 2], ['ell5', 1]],
+      medium: SHAPES_FULL,
+      hard: [['sq6', 4], ['tall6', 2], ['wide6', 2], ['ell6t', 1], ['ell6w', 1]],
+    },
+    // now and then the whole board is a Christmas tree: these case numbers, and no others
+    treeShapes: { easy: 'tree5', medium: 'tree6', hard: 'tree6' },
+    treeCases: { easy: [8, 19, 27], medium: [6, 15, 24], hard: [11, 22, 30] },
+    targets: { medium: { relMax: 1 }, hard: { minLevel: 1, maxInitialSingles: 1, relMax: 2 } },
   },
 };
